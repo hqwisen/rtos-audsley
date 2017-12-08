@@ -1,6 +1,7 @@
 import argparse
 import logging
 import sys
+from math import gcd
 
 log = logging.getLogger()
 logging.basicConfig(level=logging.DEBUG)
@@ -13,7 +14,7 @@ N_TASK_KEYS = len(TASK_KEYS)
 
 def add_task_arg(parser):
     parser.add_argument(dest='tasks_file', type=str,
-                        help='File containing tasks'
+                        help='File containing tasks: '
                              ' Offset, Period, Deadline and WCET.')
 
 
@@ -110,10 +111,28 @@ def parse_tasks(filename):
     return tasks
 
 
+def __lcm(a, b):
+    result = a * b // gcd(a, b)
+    log.debug("LCM(%s, %s) = %s" % (a, b, result))
+    return result
+
+
+def lcm(*elems):
+    if len(elems) < 2:
+        raise ValueError("Cannot return lcm of %s" % str(elems))
+    if len(elems) == 2:
+        return __lcm(*elems)
+    else:
+        log.debug("LCM(%s, %s)" % (elems[0], str(elems[1:])))
+        return __lcm(elems[0], lcm(*elems[1:]))
+
+
 def interval(tasks_file):
     log.info("Feasibility interval of '%s'" % tasks_file)
     tasks = parse_tasks(tasks_file)
-    print(tasks)
+    omax = max([task[O] for task in tasks])
+    P = lcm(*[task[T] for task in tasks])
+    print(omax, omax + (2 * P))
 
 
 def main():
