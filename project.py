@@ -1,12 +1,20 @@
 import argparse
+import logging
+import sys
 
-['sim', 'audsley', 'gen']
+log = logging.getLogger()
+logging.basicConfig(level=logging.DEBUG)
+
+# Tasks keys
+TASK_KEYS = ['offset', 'period', 'deadline', 'WCET']
+O, T, D, C = 0, 1, 2, 3
+N_TASK_KEYS = len(TASK_KEYS)
 
 
 def add_task_arg(parser):
     parser.add_argument(dest='tasks_file', type=str,
                         help='File containing tasks'
-                             ' Offset, Period, Deadline and Computation.')
+                             ' Offset, Period, Deadline and WCET.')
 
 
 def parse_args():
@@ -56,6 +64,56 @@ def exec_func(func_name, **kwargs):
     if not method:
         raise NotImplementedError("Function '%s' not implemented" % func_name)
     method(**kwargs)
+
+
+def parse_task(tn, elems):
+    """
+    Parse a task from a list of elements
+    :param tn: Number of the task
+    :param elems: List of elements containing O, T, D, C of a task
+    :raise ValueError if too much elements, not enough elements or invalid elements.
+    :return:
+    """
+    log.debug("Parse task #%s with %s" % (tn, elems))
+    task = []
+    if len(elems) > N_TASK_KEYS:
+        raise ValueError("Task #%s must only contain %s" % (tn, TASK_KEYS))
+    try:
+        for i in range(len(elems)):
+            task.append(int(elems[i]))
+    except ValueError:
+        raise ValueError(
+            "Expecting integer for %s of task #%s, got '%s' instead." % (
+                TASK_KEYS[i], tn, elems[i]))
+    if len(elems) < N_TASK_KEYS:
+        raise ValueError(
+            "Error: No %s given for task #%s" % (TASK_KEYS[len(elems)], tn))
+    return task
+
+
+def parse_tasks(filename):
+    tasks = []
+    try:
+        with open(filename, 'r') as f:
+            tn = 0
+            for line in f.readlines():
+                elems = line.strip().split()
+                if len(elems) == 0:  # Ignoring empty lines
+                    continue
+                tasks.append(parse_task(tn, elems))
+                tn += 1
+    except (FileNotFoundError, ValueError) as e:
+        log.error(e)
+        sys.exit(e)
+    log.info("Tasks successfully parsed from '%s'" % filename)
+    log.debug("Results tasks %s " % tasks)
+    return tasks
+
+
+def interval(tasks_file):
+    log.info("Feasibility interval of '%s'" % tasks_file)
+    tasks = parse_tasks(tasks_file)
+    print(tasks)
 
 
 def main():
