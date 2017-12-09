@@ -66,28 +66,28 @@ def exec_func(func_name, **kwargs):
     method(**kwargs)
 
 
-def parse_task(tn, elems):
+def parse_task(ti, elems):
     """
     Parse a task from a list of elements
-    :param tn: Number of the task
+    :param ti: task index (starts at 0)
     :param elems: List of elements containing O, T, D, C of a task
     :raise ValueError if too much elements, not enough elements or invalid elements.
     :return:
     """
-    log.debug("Parse task #%s with %s" % (tn, elems))
+    log.debug("Parse task #%s with %s" % (ti + 1, elems))
     task = []
     if len(elems) > N_TASK_KEYS:
-        raise ValueError("Task #%s must only contain %s" % (tn, TASK_KEYS))
+        raise ValueError("Task #%s must only contain %s" % (ti + 1, TASK_KEYS))
     try:
         for i in range(len(elems)):
             task.append(int(elems[i]))
     except ValueError:
         raise ValueError(
             "Expecting integer for %s of task #%s, got '%s' instead." % (
-                TASK_KEYS[i], tn, elems[i]))
+                TASK_KEYS[i], ti + 1, elems[i]))
     if len(elems) < N_TASK_KEYS:
         raise ValueError(
-            "Error: No %s given for task #%s" % (TASK_KEYS[len(elems)], tn))
+            "Error: No %s given for task #%s" % (TASK_KEYS[len(elems)], ti + 1))
     return task
 
 
@@ -95,13 +95,13 @@ def parse_tasks(filename):
     tasks = []
     try:
         with open(filename, 'r') as f:
-            tn = 0
+            ti = 0
             for line in f.readlines():
                 elems = line.strip().split()
                 if len(elems) == 0:  # Ignoring empty lines
                     continue
-                tasks.append(parse_task(tn, elems))
-                tn += 1
+                tasks.append(parse_task(ti, elems))
+                ti += 1
     except (FileNotFoundError, ValueError) as e:
         log.error(e)
         sys.exit(e)
@@ -167,15 +167,80 @@ class FTPSimulation:
         self.start = start
         self.stop = stop
         self.tasks = tasks
+        self.active_jobs = [0 for t in tasks]
+        self.S = calculate_s(self.tasks)
+        self.P = hyper_period(self.tasks)
+
+    # def transient_task(self, higher_tasks=None):
+    #     compute = []
+    #     if higher_tasks is None:  # First task
+    #         if self.tasks[0][O] < self.S:
+    #             return []  # No jobs to return
+    #         else:
+    #
+    #             job = [self.tasks[0][O], self.tasks[0][D]]
+    #             job.append((self.tasks[0][O], self.tasks[0][O] + self.tasks[0][T]))
+
+    # def transient(self):
+    #     """
+    #     (0, Sn) transient interval
+    #     :return:
+    #     """
+    #     times = {}
+    #     for t in range(0, self.S):
+    #        print(i, end = '')
+
+    def is_arrival_for(self, t, task_index):
+        """
+        Return job_index if a job request occurs at time t for task_index.
+        :param t: time step
+        :param task_index
+        :return: (job_index, True) if task_index request a new job at time t occurs,
+        (None, False) otherwise. (first job_index is 0)
+        """
+        offset, period = self.tasks[task_index][O], self.tasks[task_index][T]
+        cond = (t - offset >= 0) and ((t - offset) % period) == 0
+        job_index = (t - offset) // period  # module == 0 i.e. no decimals
+        return (job_index, True) if cond else (None, False)
+
+    def is_deadline_for(self, t, task_index):
+        """
+        Return job_index if a deadline of a job occurs at time t for task_index.
+        :param t: time step
+        :param task_index
+        :return: (job_index, True) if task_index have a deadline at time t,
+        (None, False) otherwise. (first job_index is 0)
+        """
+        offset, deadline = self.tasks[task_index][O], self.tasks[task_index][D]
+        cond = (t - offset > 0) and ((t - offset) % deadline) == 0
+        # There is no deadline  at (t - offset) = 0, since there is no job before
+        # So the deadline is for the job that was running previously, i.e -1
+        job_index = ((t - offset) // deadline) - 1  # module == 0 i.e. no decimals
+        return (job_index, True) if cond else (None, False)
+
+    def print_actions(self, t, name, test_func):
+        for task_index in range(len(self.tasks)):
+            job_index, is_action = test_func(t, task_index)
+            if is_action:
+                print("%s: %s of job T%sJ%s" % (t, name, task_index + 1,
+                                                job_index + 1))
+
+    def print_arrivals(self, t):
+        self.print_actions(t, 'Arrival', self.is_arrival_for)
+
+    def print_deadlines(self, t):
+        self.print_actions(t, 'Deadline', self.is_deadline_for)
 
     def run(self):
         print("Schedule from: %d to: %d ; %d tasks" % (self.start, self.stop, len(self.tasks)))
-        S = calculate_s(self.tasks)
-        P = hyper_period(self.tasks)
-        finterval = (0, S + P)
-        log.debug("Sn = %s ; P = %s" % (S, P))
+        finterval = (0, self.S + self.P)
+        log.debug("Sn = %s ; P = %s" % finterval)
         log.info("Feasibility/Periodicity"
                  " interval of simulation (0, Sn + P) = %s " % str(finterval))
+
+        for t in range(self.start, self.stop + 1):
+            self.print_arrivals(t)
+            self.print_deadlines(t)
 
 
 def lowest_priority_viable(tasks, start, stop, index):

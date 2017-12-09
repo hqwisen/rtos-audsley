@@ -4,6 +4,8 @@ Study Audsley’s priorities assignment algorithm for asynchronous constrained d
 
 Project 1 of Real-Time Operating Systems course.
 
+Implemented in Python 3.
+
 # HowTo
 
 ```
