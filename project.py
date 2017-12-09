@@ -145,7 +145,8 @@ def calculate_s(tasks, i=None):
     else:
         offset, period = tasks[i][O], tasks[i][T]
         previous_s = calculate_s(tasks, i - 1)
-        return offset + math.ceil(max(previous_s - offset, 0) / period)
+        # FIXME I'm not sure about the  * period at the end of the calc. see slide 56
+        return offset + (math.ceil(max(previous_s - offset, 0) / period) * period)
 
 
 def interval(tasks_file):
@@ -173,7 +174,8 @@ class FTPSimulation:
         P = hyper_period(self.tasks)
         finterval = (0, S + P)
         log.debug("Sn = %s ; P = %s" % (S, P))
-        log.info("Feasibility interval of simulation (0, Sn + P) = %s " % str(finterval))
+        log.info("Feasibility/Periodicity"
+                 " interval of simulation (0, Sn + P) = %s " % str(finterval))
 
 
 def main():
