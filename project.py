@@ -3,12 +3,14 @@ import logging
 import sys
 from math import gcd
 
+import math
+
 log = logging.getLogger()
 logging.basicConfig(level=logging.DEBUG)
 
 # Tasks keys
 TASK_KEYS = ['offset', 'period', 'deadline', 'WCET']
-O, T, D, C = 0, 1, 2, 3
+O, T, D, C = 0, 1, 2, 3  # Indices of TASK_KEYS
 N_TASK_KEYS = len(TASK_KEYS)
 
 
@@ -31,7 +33,6 @@ def parse_args():
     sim_parser = subparsers.add_parser('sim',
                                        help='FTP simulator that simulates '
                                             'the system for a given period.')
-
     sim_parser.add_argument(dest='start', type=int,
                             help='Start point of the simulation.')
     sim_parser.add_argument(dest='stop', type=int,
@@ -42,14 +43,12 @@ def parse_args():
                                            help='Depicts the research made by the Audsley’s'
                                                 ' algorithm to find a schedulable priorities'
                                                 ' assignment.')
-
     audsley_parser.add_argument(dest='first', type=int,
                                 help='First point of the interval.')
     audsley_parser.add_argument(dest='last', type=int,
                                 help='Last point of the interval.')
     add_task_arg(audsley_parser)
     audsley_parser.set_defaults(action="audsley")
-
     return vars(parser.parse_args())
 
 
@@ -127,12 +126,54 @@ def lcm(*elems):
         return __lcm(elems[0], lcm(*elems[1:]))
 
 
+def hyper_period(tasks):
+    return lcm(*[task[T] for task in tasks])
+
+
+def calculate_s(tasks, i=None):
+    """
+    Process S value of the Feasibility Interval of an asynchronous
+    constrained deadline system, where tasks are FTP.
+    :param tasks: list of tasks (ordered by priority i.e. FTP)
+    :param i: S_{i} value to calculate. If set to None, will return S_{n}.
+    :return: S_{i} value
+    """
+    if i is None:
+        return calculate_s(tasks, len(tasks) - 1)
+    elif i == 0:
+        return tasks[i][O]
+    else:
+        offset, period = tasks[i][O], tasks[i][T]
+        previous_s = calculate_s(tasks, i - 1)
+        return offset + math.ceil(max(previous_s - offset, 0) / period)
+
+
 def interval(tasks_file):
     log.info("Feasibility interval of '%s'" % tasks_file)
     tasks = parse_tasks(tasks_file)
     omax = max([task[O] for task in tasks])
-    P = lcm(*[task[T] for task in tasks])
+    P = hyper_period(tasks)
     print(omax, omax + (2 * P))
+
+
+def sim(start, stop, tasks_file):
+    log.info("Simulation for '%s'" % tasks_file)
+    FTPSimulation(start, stop, parse_tasks(tasks_file)).run()
+
+
+class FTPSimulation:
+    def __init__(self, start, stop, tasks):
+        self.start = start
+        self.stop = stop
+        self.tasks = tasks
+
+    def run(self):
+        print("Schedule from: %d to: %d ; %d tasks" % (self.start, self.stop, len(self.tasks)))
+        S = calculate_s(self.tasks)
+        P = hyper_period(self.tasks)
+        finterval = (0, S + P)
+        log.debug("Sn = %s ; P = %s" % (S, P))
+        log.info("Feasibility interval of simulation (0, Sn + P) = %s " % str(finterval))
 
 
 def main():
