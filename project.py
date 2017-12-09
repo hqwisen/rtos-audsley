@@ -184,6 +184,7 @@ def lowest_priority_viable(tasks, start, stop, index):
 
 def audsley(first, last, tasks_file):
     log.info("Audsley algorithm for '%s'" % tasks_file)
+    tasks = parse_tasks(tasks_file)
     raise NotImplementedError("Function 'audsley' not implemented")
 
 
