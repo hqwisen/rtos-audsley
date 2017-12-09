@@ -178,6 +178,15 @@ class FTPSimulation:
                  " interval of simulation (0, Sn + P) = %s " % str(finterval))
 
 
+def lowest_priority_viable(tasks, start, stop, index):
+    raise NotImplementedError("Function 'lowest_priority_viable' not implemented")
+
+
+def audsley(first, last, tasks_file):
+    log.info("Audsley algorithm for '%s'" % tasks_file)
+    raise NotImplementedError("Function 'audsley' not implemented")
+
+
 def main():
     kwargs = parse_args()
     action = kwargs['action']

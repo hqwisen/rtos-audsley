@@ -13,3 +13,6 @@ python project.py interval <tasksFile>
 ```
 python project.py sim <start> <stop> <tasksFile>
 ```
+```
+python project.py audsley <first> <last> <tasksFile>
+```
