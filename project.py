@@ -205,11 +205,12 @@ class FTPSimulation:
         self.start = start
         self.stop = stop
         self.tasks = tasks
-        self.active_jobs = [0 for t in tasks]
         self.S = calculate_s(self.tasks)
         self.P = hyper_period(self.tasks)
         # '[[]] * x' will reference  the same list i.e. the for loop instead
         self.pending_jobs = [[] for _ in range(self.tasks_count)]
+        self.previous_job = None
+        self.current_job_computation = 0
 
     @property
     def tasks_count(self):
@@ -267,13 +268,11 @@ class FTPSimulation:
     def get_job_deadlines(self, t):
         return self._jobs_for(t, self.is_deadline_for)
 
-    def handle_arrivals(self, t):
+    def add_arrivals(self, t):
         requested_jobs = self.get_job_arrivals(t)
         for task_id in range(self.tasks_count):
-            # Adding jobs to be computed
             self.pending_jobs[task_id].extend(requested_jobs[task_id])
-            for job in requested_jobs[task_id]:
-                print("%s: Arrival of job %s" % (t, job))
+        return requested_jobs
 
     def handle_deadlines(self, t):
         jobs = self.get_job_deadlines(t)
@@ -281,27 +280,46 @@ class FTPSimulation:
         for job in jobs:
             print("%s: Deadline of job %s" % (t, job))
 
-    def get_active_jobs(self):
+    def get_active_job(self):
         """
         Return the active jobs i.e the first jobs of the
         highest tasks, if it exists.
-        :return: active job (first job of higher prio. task)
+        :return: active job (first job of higher prio. task), None if
+        no jobs to compute.
         """
         for sub_jobs in self.pending_jobs:
             # As soon as a pending job is detected return it
             # Since it is sorted by tasks, and arrivals
             for job in sub_jobs:
                 return job
+        return None
 
-    def compute(self):
+    def compute(self, t):
         """
         Compute the higher priority job. If jobs is finished
         it's removed from pending_jobs.
         """
-        active_job = self.get_active_jobs()
-        active_job.compute()
-        if active_job.done():
-            self.pending_jobs[active_job.task_id].remove(active_job)
+        active_job = self.get_active_job()
+        if active_job is not None:
+            active_job.compute()
+            if active_job.done():
+                self.pending_jobs[active_job.task_id].remove(active_job)
+
+        if self.previous_job is None:
+            # First job to compute
+            self.previous_job = active_job
+            # When no job where computed before,
+            # there is no delay for the computation
+            self.current_job_computation = 0
+
+        if self.previous_job != active_job:
+            # FIXME make sure that __diff__ is impl or doesnt give any trouble
+            print("%s-%s: %s" % (t - self.current_job_computation, t,
+                                 self.previous_job))
+            self.previous_job = active_job
+            self.current_job_computation = 1
+        elif self.previous_job is not None:
+            self.current_job_computation += 1
 
     def run(self):
         print("Schedule from: %d to: %d ; %d tasks"
@@ -312,8 +330,14 @@ class FTPSimulation:
                  " interval of simulation (0, Sn + P) = %s " % str(finterval))
 
         for t in range(self.start, self.stop + 1):
-            self.handle_arrivals(t)
-            self.compute()
+            requested_jobs = self.add_arrivals(t)
+            self.compute(t)
+
+            for task_id in range(self.tasks_count):
+                for job in requested_jobs[task_id]:
+                    print("%s: Arrival of job %s" % (t, job))
+
+            # TODO handle deadlines
             # self.handle_deadlines(t)
 
 

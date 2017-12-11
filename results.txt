@@ -1,0 +1,26 @@
+Schedule from: 0 to: 200 ; 4 tasks
+0: Arrival of job T1J1
+0: Arrival of job T2J1
+0: Arrival of job T3J1
+0: Arrival of job T4J1
+0-10: T1J1
+10-30: T2J1
+30-40: T3J1
+40-50: T4J1
+50: Arrival of job T1J2
+50-60: T1J2
+60-80: T4J1
+80: Arrival of job T2J2
+80-100: T2J2
+100: Arrival of job T1J3
+100: Arrival of job T3J2
+100-110: T1J3
+110-120: T3J2
+120-140: T4J1
+150: Arrival of job T1J4
+150-160: T1J4
+160: Arrival of job T2J3
+160-180: T2J3
+200: Arrival of job T1J5
+200: Arrival of job T3J3
+200: Arrival of job T4J2
