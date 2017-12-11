@@ -6,3 +6,15 @@ interval [0, Sn + P).
 
 We can only have on job per 
 task at a time (it is constrained deadline)
+
+
+We provide a discrete simulation. Meaning that the CPU is simulated for each
+t. There is no formula to avoid doing the simulation. It is indead possible
+to simulate only [0, Sn + P).
+
+Provide a two-implementation of the simulator, one discrete, and one periodic.
+
+# Arrivals and Deadlines
+
+Since those action are periodic, we can calculate them using modulo
+

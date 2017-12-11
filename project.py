@@ -27,7 +27,8 @@ def parse_args():
                                        description='',
                                        help='Valid options to be ran.')
     interval_parser = subparsers.add_parser('interval',
-                                            help='Return the feasibility interval of given tasks.')
+                                            help='Return the feasibility '
+                                                 'interval of given tasks.')
     add_task_arg(interval_parser)
     interval_parser.set_defaults(action='interval')
     sim_parser = subparsers.add_parser('sim',
@@ -40,8 +41,9 @@ def parse_args():
     add_task_arg(sim_parser)
     sim_parser.set_defaults(action="sim")
     audsley_parser = subparsers.add_parser('audsley',
-                                           help='Depicts the research made by the Audsley’s'
-                                                ' algorithm to find a schedulable priorities'
+                                           help='Depicts the research made by '
+                                                'the Audsley’s algorithm to '
+                                                'find a schedulable priorities'
                                                 ' assignment.')
     audsley_parser.add_argument(dest='first', type=int,
                                 help='First point of the interval.')
@@ -71,7 +73,8 @@ def parse_task(ti, elems):
     Parse a task from a list of elements
     :param ti: task index (starts at 0)
     :param elems: List of elements containing O, T, D, C of a task
-    :raise ValueError if too much elements, not enough elements or invalid elements.
+    :raise ValueError if too much elements,
+    not enough elements or invalid elements.
     :return:
     """
     log.debug("Parse task #%s with %s" % (ti + 1, elems))
@@ -145,8 +148,9 @@ def calculate_s(tasks, i=None):
     else:
         offset, period = tasks[i][O], tasks[i][T]
         previous_s = calculate_s(tasks, i - 1)
-        # FIXME I'm not sure about the  * period at the end of the calc. see slide 56
-        return offset + (math.ceil(max(previous_s - offset, 0) / period) * period)
+        # FIXME check that the formula is correct
+        return offset + \
+               (math.ceil(max(previous_s - offset, 0) / period) * period)
 
 
 def interval(tasks_file):
@@ -162,6 +166,23 @@ def sim(start, stop, tasks_file):
     FTPSimulation(start, stop, parse_tasks(tasks_file)).run()
 
 
+class Job:
+    def __init__(self, task_id, job_id):
+        self.task_id = task_id
+        self.job_id = job_id
+
+    def __str__(self):
+        """
+        The task_id and job_id are printed with the first index
+        as 1.
+        :return: String representation of a job
+        """
+        return "T%sJ%s" % (self.task_id + 1, self.job_id + 1)
+
+    def __repr__(self):
+        return str(self)
+
+
 class FTPSimulation:
     def __init__(self, start, stop, tasks):
         self.start = start
@@ -170,33 +191,16 @@ class FTPSimulation:
         self.active_jobs = [0 for t in tasks]
         self.S = calculate_s(self.tasks)
         self.P = hyper_period(self.tasks)
-
-    # def transient_task(self, higher_tasks=None):
-    #     compute = []
-    #     if higher_tasks is None:  # First task
-    #         if self.tasks[0][O] < self.S:
-    #             return []  # No jobs to return
-    #         else:
-    #
-    #             job = [self.tasks[0][O], self.tasks[0][D]]
-    #             job.append((self.tasks[0][O], self.tasks[0][O] + self.tasks[0][T]))
-
-    # def transient(self):
-    #     """
-    #     (0, Sn) transient interval
-    #     :return:
-    #     """
-    #     times = {}
-    #     for t in range(0, self.S):
-    #        print(i, end = '')
+        self.pending_jobs = []
+        self.active_job = None
 
     def is_arrival_for(self, t, task_index):
         """
         Return job_index if a job request occurs at time t for task_index.
         :param t: time step
         :param task_index
-        :return: (job_index, True) if task_index request a new job at time t occurs,
-        (None, False) otherwise. (first job_index is 0)
+        :return: (job_index, True) if task_index request a new job at time t
+        occurs, (None, False) otherwise. (first job_index is 0)
         """
         offset, period = self.tasks[task_index][O], self.tasks[task_index][T]
         cond = (t - offset >= 0) and ((t - offset) % period) == 0
@@ -213,38 +217,53 @@ class FTPSimulation:
         """
         offset, deadline = self.tasks[task_index][O], self.tasks[task_index][D]
         cond = (t - offset > 0) and ((t - offset) % deadline) == 0
-        # There is no deadline  at (t - offset) = 0, since there is no job before
-        # So the deadline is for the job that was running previously, i.e -1
-        job_index = ((t - offset) // deadline) - 1  # module == 0 i.e. no decimals
+        # There is no deadline  at (t - offset) = 0, since there is no job
+        #  before, so the deadline is for the job that was
+        # running previously, i.e -1
+        #  module == 0 i.e. no decimals
+        job_index = ((t - offset) // deadline) - 1  #
         return (job_index, True) if cond else (None, False)
 
-    def print_actions(self, t, name, test_func):
+    def _jobs_for(self, t, test_func):
+        jobs = []
         for task_index in range(len(self.tasks)):
             job_index, is_action = test_func(t, task_index)
             if is_action:
-                print("%s: %s of job T%sJ%s" % (t, name, task_index + 1,
-                                                job_index + 1))
+                jobs.append(Job(task_index, job_index))
+        return jobs
 
-    def print_arrivals(self, t):
-        self.print_actions(t, 'Arrival', self.is_arrival_for)
+    def get_job_arrivals(self, t):
+        return self._jobs_for(t, self.is_arrival_for)
 
-    def print_deadlines(self, t):
-        self.print_actions(t, 'Deadline', self.is_deadline_for)
+    def get_job_deadlines(self, t):
+        return self._jobs_for(t, self.is_deadline_for)
+
+    def handle_arrivals(self, t):
+        jobs = self.get_job_arrivals(t)
+        for job in jobs:
+            print("%s: Arrival of job %s" % (t, job))
+
+    def handle_deadlines(self, t):
+        jobs = self.get_job_deadlines(t)
+        for job in jobs:
+            print("%s: Deadline of job %s" % (t, job))
 
     def run(self):
-        print("Schedule from: %d to: %d ; %d tasks" % (self.start, self.stop, len(self.tasks)))
+        print("Schedule from: %d to: %d ; %d tasks"
+              % (self.start, self.stop, len(self.tasks)))
         finterval = (0, self.S + self.P)
         log.debug("Sn = %s ; P = %s" % finterval)
         log.info("Feasibility/Periodicity"
                  " interval of simulation (0, Sn + P) = %s " % str(finterval))
 
         for t in range(self.start, self.stop + 1):
-            self.print_arrivals(t)
-            self.print_deadlines(t)
+            self.handle_arrivals(t)
+            self.handle_deadlines(t)
 
 
 def lowest_priority_viable(tasks, start, stop, index):
-    raise NotImplementedError("Function 'lowest_priority_viable' not implemented")
+    raise NotImplementedError(
+        "Function 'lowest_priority_viable' not implemented")
 
 
 def audsley(first, last, tasks_file):
