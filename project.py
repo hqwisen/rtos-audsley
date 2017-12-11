@@ -166,15 +166,32 @@ def sim(start, stop, tasks_file):
     FTPSimulation(start, stop, parse_tasks(tasks_file)).run()
 
 
+class FTPSimulationException(Exception):
+    pass
+
+
 class Job:
-    def __init__(self, task_id, job_id):
+    def __init__(self, task_id, job_id, computation):
         self.task_id = task_id
         self.job_id = job_id
+        if computation < 0:
+            raise FTPSimulationException("Cannot create a job with a negative "
+                                         "computation.")
+        self.computation = computation
+        self.remaining_computation = computation
+
+    def compute(self, computation=1):
+        if self.done():
+            raise FTPSimulationException("Cannot compute a job that is done.")
+        self.remaining_computation -= computation
+
+    def done(self):
+        return self.remaining_computation == 0
 
     def __str__(self):
         """
-        The task_id and job_id are printed with the first index
-        as 1.
+        The task_id and job_id are printed with the first id
+        as 1 (not 0).
         :return: String representation of a job
         """
         return "T%sJ%s" % (self.task_id + 1, self.job_id + 1)
@@ -191,45 +208,57 @@ class FTPSimulation:
         self.active_jobs = [0 for t in tasks]
         self.S = calculate_s(self.tasks)
         self.P = hyper_period(self.tasks)
-        self.pending_jobs = []
-        self.active_job = None
+        # '[[]] * x' will reference  the same list i.e. the for loop instead
+        self.pending_jobs = [[] for _ in range(self.tasks_count)]
 
-    def is_arrival_for(self, t, task_index):
+    @property
+    def tasks_count(self):
+        return len(self.tasks)
+
+    def is_arrival_for(self, t, task_id):
         """
-        Return job_index if a job request occurs at time t for task_index.
+        Return job_id if a job request occurs at time t for task_id.
         :param t: time step
-        :param task_index
-        :return: (job_index, True) if task_index request a new job at time t
-        occurs, (None, False) otherwise. (first job_index is 0)
+        :param task_id
+        :return: (job_id, True) if task_id request a new job at time t
+        occurs, (None, False) otherwise. (first job_id is 0)
         """
-        offset, period = self.tasks[task_index][O], self.tasks[task_index][T]
+        offset, period = self.tasks[task_id][O], self.tasks[task_id][T]
         cond = (t - offset >= 0) and ((t - offset) % period) == 0
-        job_index = (t - offset) // period  # module == 0 i.e. no decimals
-        return (job_index, True) if cond else (None, False)
+        job_id = (t - offset) // period  # module == 0 i.e. no decimals
+        return (job_id, True) if cond else (None, False)
 
-    def is_deadline_for(self, t, task_index):
+    def is_deadline_for(self, t, task_id):
         """
-        Return job_index if a deadline of a job occurs at time t for task_index.
+        Return job_id if a deadline of a job occurs at time t for task_id.
         :param t: time step
-        :param task_index
-        :return: (job_index, True) if task_index have a deadline at time t,
-        (None, False) otherwise. (first job_index is 0)
+        :param task_id
+        :return: (job_id, True) if task_id have a deadline at time t,
+        (None, False) otherwise. (first job_id is 0)
         """
-        offset, deadline = self.tasks[task_index][O], self.tasks[task_index][D]
+        offset, deadline = self.tasks[task_id][O], self.tasks[task_id][D]
         cond = (t - offset > 0) and ((t - offset) % deadline) == 0
         # There is no deadline  at (t - offset) = 0, since there is no job
         #  before, so the deadline is for the job that was
         # running previously, i.e -1
         #  module == 0 i.e. no decimals
-        job_index = ((t - offset) // deadline) - 1  #
-        return (job_index, True) if cond else (None, False)
+        job_id = ((t - offset) // deadline) - 1  #
+        return (job_id, True) if cond else (None, False)
 
     def _jobs_for(self, t, test_func):
-        jobs = []
-        for task_index in range(len(self.tasks)):
-            job_index, is_action = test_func(t, task_index)
+        """
+        Return a list of list of jobs base on test_func
+        :param t:
+        :param test_func:
+        :return: [[jobs of T1], ... [jobs of T2]] that correspond to test_func
+        (usually either arrivals jobs, or deadlines)
+        """
+        jobs = [[] for _ in range(self.tasks_count)]
+        for task_id in range(self.tasks_count):
+            job_id, is_action = test_func(t, task_id)
             if is_action:
-                jobs.append(Job(task_index, job_index))
+                jobs[task_id].append(Job(task_id, job_id,
+                                         self.tasks[task_id][C]))
         return jobs
 
     def get_job_arrivals(self, t):
@@ -239,18 +268,44 @@ class FTPSimulation:
         return self._jobs_for(t, self.is_deadline_for)
 
     def handle_arrivals(self, t):
-        jobs = self.get_job_arrivals(t)
-        for job in jobs:
-            print("%s: Arrival of job %s" % (t, job))
+        requested_jobs = self.get_job_arrivals(t)
+        for task_id in range(self.tasks_count):
+            # Adding jobs to be computed
+            self.pending_jobs[task_id].extend(requested_jobs[task_id])
+            for job in requested_jobs[task_id]:
+                print("%s: Arrival of job %s" % (t, job))
 
     def handle_deadlines(self, t):
         jobs = self.get_job_deadlines(t)
+        print(jobs)
         for job in jobs:
             print("%s: Deadline of job %s" % (t, job))
 
+    def get_active_jobs(self):
+        """
+        Return the active jobs i.e the first jobs of the
+        highest tasks, if it exists.
+        :return: active job (first job of higher prio. task)
+        """
+        for sub_jobs in self.pending_jobs:
+            # As soon as a pending job is detected return it
+            # Since it is sorted by tasks, and arrivals
+            for job in sub_jobs:
+                return job
+
+    def compute(self):
+        """
+        Compute the higher priority job. If jobs is finished
+        it's removed from pending_jobs.
+        """
+        active_job = self.get_active_jobs()
+        active_job.compute()
+        if active_job.done():
+            self.pending_jobs[active_job.task_id].remove(active_job)
+
     def run(self):
         print("Schedule from: %d to: %d ; %d tasks"
-              % (self.start, self.stop, len(self.tasks)))
+              % (self.start, self.stop, self.tasks_count))
         finterval = (0, self.S + self.P)
         log.debug("Sn = %s ; P = %s" % finterval)
         log.info("Feasibility/Periodicity"
@@ -258,7 +313,8 @@ class FTPSimulation:
 
         for t in range(self.start, self.stop + 1):
             self.handle_arrivals(t)
-            self.handle_deadlines(t)
+            self.compute()
+            # self.handle_deadlines(t)
 
 
 def lowest_priority_viable(tasks, start, stop, index):
