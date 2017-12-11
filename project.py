@@ -188,6 +188,17 @@ class Job:
     def done(self):
         return self.remaining_computation == 0
 
+    def __eq__(self, other):
+        # TODO whyis None compared to a job, Is it when miss_dealine is called ?
+        if other is None or not isinstance(other, Job):
+            return False
+        else:
+            return self.task_id == other.task_id \
+                   and self.job_id == other.job_id
+
+    def __ne__(self, other):
+        return not self == other
+
     def __str__(self):
         """
         The task_id and job_id are printed with the first id
@@ -268,17 +279,14 @@ class FTPSimulation:
     def get_job_deadlines(self, t):
         return self._jobs_for(t, self.is_deadline_for)
 
+    def miss_deadline(self, job, t):
+        return job in self.pending_jobs[job.task_id]
+
     def add_arrivals(self, t):
         requested_jobs = self.get_job_arrivals(t)
         for task_id in range(self.tasks_count):
             self.pending_jobs[task_id].extend(requested_jobs[task_id])
         return requested_jobs
-
-    def handle_deadlines(self, t):
-        jobs = self.get_job_deadlines(t)
-        print(jobs)
-        for job in jobs:
-            print("%s: Deadline of job %s" % (t, job))
 
     def get_active_job(self):
         """
@@ -303,6 +311,7 @@ class FTPSimulation:
         if active_job is not None:
             active_job.compute()
             if active_job.done():
+                log.debug("%s: Removing job from pending: %s" % (t, active_job))
                 self.pending_jobs[active_job.task_id].remove(active_job)
 
         if self.previous_job is None:
@@ -314,6 +323,7 @@ class FTPSimulation:
 
         if self.previous_job != active_job:
             # FIXME make sure that __diff__ is impl or doesnt give any trouble
+            log.debug("%s: New job %s to be computed" % (t, active_job))
             print("%s-%s: %s" % (t - self.current_job_computation, t,
                                  self.previous_job))
             self.previous_job = active_job
@@ -330,15 +340,23 @@ class FTPSimulation:
                  " interval of simulation (0, Sn + P) = %s " % str(finterval))
 
         for t in range(self.start, self.stop + 1):
+            log.debug("%s: pending jobs: %s" % (t, self.pending_jobs))
+            # FIXME why deadline should occur before computer ?
+            # FIXME look miss.txt example for confusion
+            job_deadlines = self.get_job_deadlines(t)
+            log.debug("%s: job deadlines: %s" % (t, job_deadlines))
+            for task_id in range(self.tasks_count):
+                for job in job_deadlines[task_id]:
+                    if self.miss_deadline(job, t):
+                        print("%s: Job %s misses a deadline" % (t, job))
+                    else:
+                        print("%s: Deadline of job %s" % (t, job))
             requested_jobs = self.add_arrivals(t)
+            log.debug("%s: requested jobs: %s" % (t, requested_jobs))
             self.compute(t)
-
             for task_id in range(self.tasks_count):
                 for job in requested_jobs[task_id]:
                     print("%s: Arrival of job %s" % (t, job))
-
-            # TODO handle deadlines
-            # self.handle_deadlines(t)
 
 
 def lowest_priority_viable(tasks, start, stop, index):

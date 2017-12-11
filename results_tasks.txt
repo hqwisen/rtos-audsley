@@ -22,7 +22,7 @@ Schedule from: 0 to: 200 ; 4 tasks
 110-120: T3J2
 120-140: T4J1
 150: Arrival of job T1J4
-2150: Deadline of job T1J3
+150: Deadline of job T1J3
 150-160: T1J4
 160: Arrival of job T2J3
 160: Deadline of job T2J2
