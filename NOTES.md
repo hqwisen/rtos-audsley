@@ -18,3 +18,9 @@ Provide a two-implementation of the simulator, one discrete, and one periodic.
 
 Since those action are periodic, we can calculate them using modulo
 
+
+Formulas:
+
+(t - offset) // period
+
+((t - offset) // deadline) - 1

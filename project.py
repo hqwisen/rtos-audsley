@@ -6,7 +6,7 @@ from math import gcd
 import math
 
 log = logging.getLogger()
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.FATAL)
 
 # Tasks keys
 TASK_KEYS = ['offset', 'period', 'deadline', 'WCET']
@@ -254,7 +254,7 @@ class FTPSimulation:
         #  before, so the deadline is for the job that was
         # running previously, i.e -1
         #  module == 0 i.e. no decimals
-        job_id = ((t - offset) // deadline) - 1  #
+        job_id = ((t - offset) // deadline) - 1
         return (job_id, True) if cond else (None, False)
 
     def _jobs_for(self, t, test_func):
@@ -279,7 +279,7 @@ class FTPSimulation:
     def get_job_deadlines(self, t):
         return self._jobs_for(t, self.is_deadline_for)
 
-    def miss_deadline(self, job, t):
+    def miss_deadline(self, job):
         return job in self.pending_jobs[job.task_id]
 
     def add_arrivals(self, t):
@@ -319,6 +319,10 @@ class FTPSimulation:
             self.previous_job = active_job
             # When no job where computed before,
             # there is no delay for the computation
+            # FIXME why 0 and not 1 ?
+            # FIXME Look at how the simulation behave when active job is done
+            # FIXME I think it consider the computing of the next job as not start
+            # FIXME when the active-job is finished
             self.current_job_computation = 0
 
         if self.previous_job != active_job:
@@ -347,7 +351,7 @@ class FTPSimulation:
             log.debug("%s: job deadlines: %s" % (t, job_deadlines))
             for task_id in range(self.tasks_count):
                 for job in job_deadlines[task_id]:
-                    if self.miss_deadline(job, t):
+                    if self.miss_deadline(job):
                         print("%s: Job %s misses a deadline" % (t, job))
                     else:
                         print("%s: Deadline of job %s" % (t, job))
