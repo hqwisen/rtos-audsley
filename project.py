@@ -6,7 +6,10 @@ from math import gcd
 import math
 
 log = logging.getLogger()
-logging.basicConfig(level=logging.DEBUG)
+#log.propagate = False
+#logging.basicConfig(level=logging.DEBUG)
+
+
 
 # Tasks keys
 TASK_KEYS = ['offset', 'period', 'deadline', 'WCET']
@@ -222,6 +225,18 @@ class FTPSimulation:
         self.pending_jobs = [[] for _ in range(self.tasks_count)]
         self.previous_job = None
         self.current_job_computation = 0
+        self.missed_jobs  = dict()
+        self.fill_missedJobs_dict()
+        print (self.missed_jobs)
+
+
+    
+    def fill_missedJobs_dict(self):
+        for i in range (self.tasks_count):
+            self.missed_jobs["Task "+str(i)] = 0
+    
+    def get_missedJobs(self):
+        return self.missed_jobs    
 
     @property
     def tasks_count(self):
@@ -344,11 +359,14 @@ class FTPSimulation:
             # FIXME why deadline should occur before computer ?
             # FIXME look miss.txt example for confusion
             job_deadlines = self.get_job_deadlines(t)
+            #print ("deeadline jobs :", job_deadlines)
             log.debug("%s: job deadlines: %s" % (t, job_deadlines))
             for task_id in range(self.tasks_count):
                 for job in job_deadlines[task_id]:
                     if self.miss_deadline(job, t):
                         print("%s: Job %s misses a deadline" % (t, job))
+                        self.missed_jobs["Task "+str(t)] += 1
+                        print(self.missed_jobs)
                     else:
                         print("%s: Deadline of job %s" % (t, job))
             requested_jobs = self.add_arrivals(t)
@@ -360,17 +378,34 @@ class FTPSimulation:
 
 
 def lowest_priority_viable(tasks, start, stop, index):
-    raise NotImplementedError(
-        "Function 'lowest_priority_viable' not implemented")
+    """Uses missed_jobs wihch contains tasks and number of missed jobs for every task return false if the 
+    task given on index miss a job """
+    tasksCopy = tasks[:] 
+    if index != len(tasksCopy)-1 : 
+        taskCandidate = tasksCopy[index]
+        del tasksCopy[index]
+        tasksCopy.append(taskCandidate)
+    simulation = FTPSimulation(start, stop, tasks) 
+    simulation.run()
+    t = simulation.get_missedJobs()["Task "+str(index)]
+    if t > 0:
+        print(simulation.get_missedJobs())
+        return False
+    else : 
+        print(simulation.get_missedJobs())
+        return True
+
+    #raise NotImplementedError(
+        #"Function 'lowest_priority_viable' not implemented")
 
 
 def audsley(first, last, tasks_file):
     log.info("Audsley algorithm for '%s'" % tasks_file)
-    tasks = parse_tasks(tasks_file)
     raise NotImplementedError("Function 'audsley' not implemented")
 
 
 def main():
+    #pass
     kwargs = parse_args()
     action = kwargs['action']
     del kwargs['action']
@@ -379,3 +414,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+    #tasks = parse_tasks("tasks.txt")
+    #print(len(tasks))
+    #print(lowest_priority_viable(tasks,0,10,1))
+    #print(parse_task(0,[0, 50, 50, 10]))
