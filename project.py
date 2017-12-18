@@ -390,8 +390,10 @@ def lowest_priority_viable(tasks, start, stop, index):
     tasks and number of missed jobs for every task return false if the
     task given on index miss a job
     """
+    # FIXME add a condition either here or in the simulation if len(tasks) == 1 (or 0)
     # FIXME make sure that it is a deepcopy
-    tasks_copy = tasks[:index] + tasks[index + 1:] + [index]
+    tasks_copy = tasks[:index] + tasks[index + 1:] + [tasks[index]]
+    print(tasks_copy)
     simulation = FTPSimulation(start, stop, tasks_copy)
     simulation.run()
     missed_jobs = simulation.get_missed_jobs()[index]
@@ -399,13 +401,19 @@ def lowest_priority_viable(tasks, start, stop, index):
     return missed_jobs == 0
 
 
-def audsley(first, last, tasks, level=0):
+def audsley_search(first, last, tasks, level=0):
     for i in range(len(tasks)):
         if lowest_priority_viable(tasks, first, last, i):
             print(("\t" * level), "Task %d is lowest priority viable")
-            audsley(first, last, tasks[:i] + tasks[i + 1:], level+1)
+            audsley_search(first, last, tasks[:i] + tasks[i + 1:], level+1)
         else:
             print(("\t" * level), "Task %d is not lowest priority viable")
+
+
+def audsley(first, last, tasks_file):
+    log.info("Running audsley command with '%s'" % tasks_file)
+    audsley_search(first, last, parse_tasks(tasks_file))
+
 
 # log.info("Audsley algorithm for '%s'" % tasks_file)
 # raise NotImplementedError("Function 'audsley' not implemented")
@@ -518,8 +526,8 @@ def audsley_main():
 
 
 if __name__ == "__main__":
-    # main()
+    main()
     # audsley_main()
-    g = Generator(70, 6)
-    g.generate_tasks_on_file()
+    # g = Generator(70, 6)
+    # g.generate_tasks_on_file()
     # print(g.gen())
