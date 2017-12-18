@@ -2,15 +2,13 @@ import argparse
 import logging
 import sys
 from math import gcd
-from random import randint,shuffle
+from random import randint, shuffle
 
 import math
 
 log = logging.getLogger()
-#log.propagate = False
+# log.propagate = False
 logging.basicConfig(level=logging.DEBUG)
-
-
 
 # Tasks keys
 TASK_KEYS = ['offset', 'period', 'deadline', 'WCET']
@@ -44,7 +42,7 @@ def parse_args():
                             help='Stop point of the simulation.')
     add_task_arg(sim_parser)
     sim_parser.set_defaults(action="sim")
-    
+
     audsley_parser = subparsers.add_parser('audsley',
                                            help='Depicts the research made by '
                                                 'the Audsley’s algorithm to '
@@ -56,17 +54,15 @@ def parse_args():
                                 help='Last point of the interval.')
     add_task_arg(audsley_parser)
     audsley_parser.set_defaults(action="audsley")
-    
-    generator_parser =  subparsers.add_parser('geneartor',
-                                           help='Generate a random  '
-                                                'random periodic, asynchronous '
-                                                'systems with constrained deadlines.')
-    generator_parser.add_argument(dest='utilisation_factor', type =int,
-                                    help='Utilisation factor of the system')
-    generator_parser.add_argument(dest='number_of_tasks',type =int,
-                                    help = 'Number of tasks')
 
-
+    generator_parser = subparsers.add_parser('geneartor',
+                                             help='Generate a random  '
+                                                  'random periodic, asynchronous '
+                                                  'systems with constrained deadlines.')
+    generator_parser.add_argument(dest='utilisation_factor', type=int,
+                                  help='Utilisation factor of the system')
+    generator_parser.add_argument(dest='number_of_tasks', type=int,
+                                  help='Number of tasks')
 
     return vars(parser.parse_args())
 
@@ -239,17 +235,15 @@ class FTPSimulation:
         self.pending_jobs = [[] for _ in range(self.tasks_count)]
         self.previous_job = None
         self.current_job_computation = 0
-        self.missed_jobs  = dict()
+        self.missed_jobs = dict()
         self.fill_missed_jobs_dict()
 
-
-    
     def fill_missed_jobs_dict(self):
-        for i in range (self.tasks_count):
+        for i in range(self.tasks_count):
             self.missed_jobs[i] = 0
-    
+
     def get_missed_jobs(self):
-        return self.missed_jobs    
+        return self.missed_jobs
 
     @property
     def tasks_count(self):
@@ -372,7 +366,7 @@ class FTPSimulation:
             # FIXME why deadline should occur before computer ?
             # FIXME look miss.txt example for confusion
             job_deadlines = self.get_job_deadlines(t)
-            #print ("deeadline jobs :", job_deadlines)
+            # print ("deeadline jobs :", job_deadlines)
             log.debug("%s: job deadlines: %s" % (t, job_deadlines))
             for task_id in range(self.tasks_count):
                 for job in job_deadlines[task_id]:
@@ -391,145 +385,136 @@ class FTPSimulation:
 
 
 def lowest_priority_viable(tasks, start, stop, index):
-    """Uses missed_jobs wihch contains tasks and number of missed jobs for every task return false if the 
-    task given on index miss a job """
-    tasksCopy = tasks[:] 
-    if index != len(tasksCopy)-1 : 
-        taskCandidate = tasksCopy[index]
-        del tasksCopy[index]
-        tasksCopy.append(taskCandidate)
-    simulation = FTPSimulation(start, stop, tasks) 
+    """
+    Uses missed_jobs wihch contains
+    tasks and number of missed jobs for every task return false if the
+    task given on index miss a job
+    """
+    # FIXME make sure that it is a deepcopy
+    tasks_copy = tasks[:index] + tasks[index + 1:] + [index]
+    simulation = FTPSimulation(start, stop, tasks_copy)
     simulation.run()
     missed_jobs = simulation.get_missed_jobs()[index]
-    if missed_jobs > 0:
-        log.info("Tasks missed jobs '%s'" % simulation.get_missed_jobs())
-        return False
-    else : 
-        log.info("Tasks missed jobs '%s'" % simulation.get_missed_jobs())
-        return True
-
-
-def lowest_priority_viable_at_least(tasks,start,stop):
-    """FUnction to know if there is a lowest priority viable on a set of tasks"""
-    for i in range (len(tasks)):
-        if lowest_priority_viable(tasks,start,stop,i):
-            return True
-    return False
+    log.info("Tasks missed jobs '%s'" % simulation.get_missed_jobs())
+    return missed_jobs == 0
 
 
 def audsley(first, last, tasks):
-    #tasks = parse_tasks(tasks_file)
-    if not lowest_priority_viable_at_least(tasks,first,last):
-        log.info("infaisable")
-        return tasks
+    lowests = []
+    for i in range(len(tasks)):
+        if lowest_priority_viable(tasks, first, last, i):
+            lowests.append(i)
+    if len(lowests) == 0:
+        log.info("Audsley infeasible")
+        return None  # FIXME what to return
+    elif len(tasks) == 1:
+        return [tasks[0]]
+
     else:
-        for i in range (len(tasks)):
-            if lowest_priority_viable(tasks, start, stop, i):
-                self.solutions.append([tasks[i]])
-
-    log.info("Audsley algorithm for '%s'" % tasks_file)
-    #raise NotImplementedError("Function 'audsley' not implemented") 
-
+        solutions = []
+        for i in lowests:
+            solutions.append([tasks[i]])
+            result = audsley(first, last, tasks[:i] + tasks[i + 1:])
+            if result is not None:
+                solutions[i].extend(result)
+    return None
+    # log.info("Audsley algorithm for '%s'" % tasks_file)
+    # raise NotImplementedError("Function 'audsley' not implemented")
 
 
 class Generator:
-    def __init__(self,utilisation_factor,number_of_tasks): 
+    def __init__(self, utilisation_factor, number_of_tasks):
         self.utilisation_factor = utilisation_factor
         self.number_of_tasks = number_of_tasks
 
-
     def generate(self):
         """The System must just respect this inequlaity Ci <= Di <= Ti for every task i"""
-        task = [0 for _ in range (N_TASK_KEYS)]
-        #print(task)
-        all_tasks = [task[:] for i in range(self.number_of_tasks)]                
-        #adequate_system = False
+        task = [0 for _ in range(N_TASK_KEYS)]
+        # print(task)
+        all_tasks = [task[:] for i in range(self.number_of_tasks)]
+        # adequate_system = False
         use_of_system = 0
         t = 0
-        while  t < self.number_of_tasks :
-            all_tasks[t][O] = randint(0,300) #offset can be equal to 0, 300 is completly arbitrary
-            all_tasks[t][T] = randint(1,100) #period this one can't be equal to 0 but it can be arbitrary too
-            all_tasks[t][C] = randint(1,all_tasks[t][T]) # Ci <= Di <= Ti
-            all_tasks[t][D] = randint(all_tasks[t][C],all_tasks[t][T]) # Ci <= Di <= Ti  
+        while t < self.number_of_tasks:
+            all_tasks[t][O] = randint(0,
+                                      300)  # offset can be equal to 0, 300 is completly arbitrary
+            all_tasks[t][T] = randint(1,
+                                      100)  # period this one can't be equal to 0 but it can be arbitrary too
+            all_tasks[t][C] = randint(1, all_tasks[t][T])  # Ci <= Di <= Ti
+            all_tasks[t][D] = randint(all_tasks[t][C], all_tasks[t][T])  # Ci <= Di <= Ti
             use_of_system += (self.task_utilisation(all_tasks[t]))
             t += 1
-            if (use_of_system*100) > self.utilisation_factor or \
-             (t == self.number_of_tasks and not self.close_to(self.utilisation_factor,use_of_system*100)) :
-                #if the system utilisation asked is not reached in the genearted system we  reintilize paramaters
-                t=0
-                task[:] = [0 for _ in range (N_TASK_KEYS)] # we must do task[:] because of references lists in Python
-                all_tasks[:] = [task[:] for i in range(self.number_of_tasks)]                
+            if (use_of_system * 100) > self.utilisation_factor or \
+                    (t == self.number_of_tasks and not self.close_to(self.utilisation_factor,
+                                                                     use_of_system * 100)):
+                # if the system utilisation asked is not reached in the genearted system we  reintilize paramaters
+                t = 0
+                task[:] = [0 for _ in range(
+                    N_TASK_KEYS)]  # we must do task[:] because of references lists in Python
+                all_tasks[:] = [task[:] for i in range(self.number_of_tasks)]
                 use_of_system = 0
         return all_tasks
 
     def gen(self):
         """The System must just respect this inequlaity Ci <= Di <= Ti for every task i"""
-        task = [0 for _ in range (N_TASK_KEYS)]
-        all_tasks = [task[:] for i in range(self.number_of_tasks)]                
+        task = [0 for _ in range(N_TASK_KEYS)]
+        all_tasks = [task[:] for i in range(self.number_of_tasks)]
         use_of_system = 0
         t = 0
-        while not self.close_to_util(self.utilisation_factor,use_of_system*100):
-            task = [0 for _ in range (N_TASK_KEYS)]
-            all_tasks = [task[:] for i in range(self.number_of_tasks)]                
+        while not self.close_to_util(self.utilisation_factor, use_of_system * 100):
+            task = [0 for _ in range(N_TASK_KEYS)]
+            all_tasks = [task[:] for i in range(self.number_of_tasks)]
             use_of_system = 0
             t = 0
-            for i in range (self.number_of_tasks) :
-                all_tasks[i][O] = randint(0,300) #offset can be equal to 0, 300 is completly arbitrary
-                all_tasks[i][T] = randint(1,100)
-                all_tasks[i][C] = randint(1,all_tasks[i][T])
-                all_tasks[i][D] = randint(all_tasks[i][C],all_tasks[i][T])   
+            for i in range(self.number_of_tasks):
+                all_tasks[i][O] = randint(0,
+                                          300)  # offset can be equal to 0, 300 is completly arbitrary
+                all_tasks[i][T] = randint(1, 100)
+                all_tasks[i][C] = randint(1, all_tasks[i][T])
+                all_tasks[i][D] = randint(all_tasks[i][C], all_tasks[i][T])
                 use_of_system += (self.task_utilisation(all_tasks[i]))
                 log.info("use_of_system  '%s'" % use_of_system)
         return all_tasks
-               
 
-
-    def task_utilisation(self,task):
+    def task_utilisation(self, task):
         """Calculate the utilisation of task WCET/PERIOD"""
-        return task[C]/task[T]
+        return task[C] / task[T]
 
-    def close_to(self,utilisation,founded_util):
+    def close_to(self, utilisation, founded_util):
         """Return True if the utilisation founded is close to utilisation asked"""
-        valid_approximation = founded_util >= (utilisation - 4) # 4 is an arbitrary choice ( we follow the logic of round)
+        valid_approximation = founded_util >= (
+                utilisation - 4)  # 4 is an arbitrary choice ( we follow the logic of round)
         return valid_approximation
-    
-    def close_to_util(self,utilisation,founded_util):
+
+    def close_to_util(self, utilisation, founded_util):
         """Return True if the utilisation founded is on a good interval"""
-        valid_approximation = founded_util >= (utilisation - 4) and founded_util < utilisation # 4 is an arbitrary choice ( we follow the logic of round)
-        return valid_approximation    
-    
-    def system_utilisation(self,tasks):
+        valid_approximation = founded_util >= (
+                utilisation - 4) and founded_util < utilisation  # 4 is an arbitrary choice ( we follow the logic of round)
+        return valid_approximation
+
+    def system_utilisation(self, tasks):
         """Calculate the utilisation of the system which it's the sum of all tasks utilisation"""
         result = 0
         for task in tasks:
             result += self.task_utilisation(task)
         result *= 100
-        return result    
-
+        return result
 
     def generate_tasks_on_file(self):
         """genearate the tasks and write them on a file"""
-        f = open("tasks_generated.txt","w") 
+        f = open("tasks_generated.txt", "w")
         all_tasks = self.generate()
         for task in all_tasks:
             for element in task:
-                 f.write(str(element)+"  ")
+                f.write(str(element) + "  ")
             f.write("\n")
         f.close()
-        log.info("System utilisation of the generated tasks  '%s'" % self.system_utilisation(all_tasks))
-
-
-
-
-
-        
-
-
-        
+        log.info(
+            "System utilisation of the generated tasks  '%s'" % self.system_utilisation(all_tasks))
 
 
 def main():
-    #pass
+    # pass
     kwargs = parse_args()
     action = kwargs['action']
     del kwargs['action']
@@ -540,12 +525,12 @@ def audsley_main():
     tasks = parse_tasks("miss.txt")
     print(len(tasks))
     log.debug("Audsley algorithm for '%s'" % len(tasks))
-    print(lowest_priority_viable(tasks,0,10,0))
+    print(lowest_priority_viable(tasks, 0, 10, 0))
 
 
 if __name__ == "__main__":
-    #main()
-    #audsley_main()
-    g = Generator(70,6)
+    # main()
+    # audsley_main()
+    g = Generator(70, 6)
     g.generate_tasks_on_file()
-    #print(g.gen())
+    # print(g.gen())
