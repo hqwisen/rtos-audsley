@@ -399,27 +399,16 @@ def lowest_priority_viable(tasks, start, stop, index):
     return missed_jobs == 0
 
 
-def audsley(first, last, tasks):
-    lowests = []
+def audsley(first, last, tasks, level=0):
     for i in range(len(tasks)):
         if lowest_priority_viable(tasks, first, last, i):
-            lowests.append(i)
-    if len(lowests) == 0:
-        log.info("Audsley infeasible")
-        return None  # FIXME what to return
-    elif len(tasks) == 1:
-        return [tasks[0]]
+            print(("\t" * level), "Task %d is lowest priority viable")
+            audsley(first, last, tasks[:i] + tasks[i + 1:], level+1)
+        else:
+            print(("\t" * level), "Task %d is not lowest priority viable")
 
-    else:
-        solutions = []
-        for i in lowests:
-            solutions.append([tasks[i]])
-            result = audsley(first, last, tasks[:i] + tasks[i + 1:])
-            if result is not None:
-                solutions[i].extend(result)
-    return None
-    # log.info("Audsley algorithm for '%s'" % tasks_file)
-    # raise NotImplementedError("Function 'audsley' not implemented")
+# log.info("Audsley algorithm for '%s'" % tasks_file)
+# raise NotImplementedError("Function 'audsley' not implemented")
 
 
 class Generator:
