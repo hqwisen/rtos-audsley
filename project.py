@@ -235,15 +235,12 @@ class FTPSimulation:
         self.pending_jobs = [[] for _ in range(self.tasks_count)]
         self.previous_job = None
         self.current_job_computation = 0
-        self.missed_jobs = dict()
-        self.fill_missed_jobs_dict()
+        self._missed_jobs = [0 for i in range(self.tasks_count)]
+        self.scheduling = [[] for i in range(self.tasks_count)]
 
-    def fill_missed_jobs_dict(self):
-        for i in range(self.tasks_count):
-            self.missed_jobs[i] = 0
-
-    def get_missed_jobs(self):
-        return self.missed_jobs
+    @property
+    def missed_jobs(self):
+        return self._missed_jobs
 
     @property
     def tasks_count(self):
@@ -324,14 +321,23 @@ class FTPSimulation:
                 return job
         return None
 
+    def add_scheduling_data(self, active_job):
+        for task_id in range(self.tasks_count):
+            # 0 will be used as the idle points in the plots
+            value = task_id + 1 if task_id == active_job.task_id else 0
+            self.scheduling[task_id].append(value)
+
     def compute(self, t):
         """
         Compute the higher priority job. If jobs is finished
         it's removed from pending_jobs.
         """
         active_job = self.get_active_job()
+
         if active_job is not None:
+            log.debug("Computing %s" % active_job)
             active_job.compute()
+            self.add_scheduling_data(active_job)
             if active_job.done():
                 log.debug("%s: Removing job from pending: %s" % (t, active_job))
                 self.pending_jobs[active_job.task_id].remove(active_job)
@@ -386,6 +392,7 @@ class FTPSimulation:
             for task_id in range(self.tasks_count):
                 for job in requested_jobs[task_id]:
                     print("%s: Arrival of job %s" % (t, job))
+            log.debug("Scheduling data: %s" % self.scheduling)
 
 
 def lowest_priority_viable(tasks, start, stop, index):
