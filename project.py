@@ -237,6 +237,19 @@ class Event:
         self.deadlines, self.arrivals = [], []
         self.missed_deadlines = []
 
+    def no_requests(self):
+        return len(self.deadlines) == 0 \
+               and len(self.arrivals) == 0 and len(self.missed_deadlines) == 0
+
+    def print(self, t):
+        for job in self.arrivals:
+            print("%s: Arrival of job %s" % (t, job))
+
+        for job in self.deadlines:
+            print("%s: Deadline of job %s" % (t, job))
+        for job in self.missed_deadlines:
+            print("%s: Job %s misses a deadline" % (t, job))
+
     def __str__(self):
         string = ""
         string += "Job=" + str(self.computed_job)
@@ -435,11 +448,32 @@ class FTPSimulation:
     def output(self):
         print("Schedule from: %d to: %d ; %d tasks"
               % (self.start, self.stop, self.tasks_count))
-        for t in range(len(self.events)):
-            print(t, ':', self.events[t])
+        compute_start, compute_shift = 0, 1
+        computed_job = None
+        for t in range(0, len(self.events)):
+
+            if computed_job is None:
+                computed_job = self.events[t].computed_job
+
+            if self.events[t].no_requests():
+                if computed_job is not None:
+                    compute_shift += 1
+                    if computed_job != self.events[t].computed_job:
+                        print("%s-%s: %s" % (compute_start,
+                                             compute_start + compute_shift,
+                                             computed_job))
+                        compute_start, compute_shift = t, 1
+                        computed_job = self.events[t].computed_job
+            else:
+                if t != 0:
+                    print("%s-%s: %s" % (compute_start,
+                                         compute_start + compute_shift,
+                                         computed_job))
+                    compute_start, compute_shift = t, 1
+                    computed_job = self.events[t].computed_job
+                self.events[t].print(t)
 
     def plot(self, filename):
-
         fig = plt.figure()
         ax = fig.add_subplot(111)
         # ax.axes.get_yaxis().set_visible(False)
@@ -452,19 +486,10 @@ class FTPSimulation:
                 y2 = y1 + 1
                 if col != 0:
                     plt.fill_between(x1, y1, y2=y2, color='black')
-                    # plt.text(avg(x1[0], x1[1]), avg(y1[0], y2[0]), "T%s"%(y+1),
-                    #           horizontalalignment='center',
-                    #           verticalalignment='center')
                 else:
                     plt.fill_between(x1, y1, y2=y2, color='white')
-                    # plt.text(avg(x1[0], x1[1]), avg(y1[0], y2[0]),
-                    #          "T%s" % (y + 1),
-                    #          horizontalalignment='center',
-                    #          verticalalignment='center')
 
-        ylabels = []
-        for t in range(self.tasks_count):
-            ylabels.append("T%s" % t)
+        ylabels = ["T%s" % t for t in range(self.tasks_count)]
         ax.set_yticklabels(ylabels)
         plt.ylim(len(self.scheduling), 0)
         plt.savefig(filename, bbox_inches='tight')
