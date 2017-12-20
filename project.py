@@ -179,7 +179,7 @@ def sim(start, stop, tasks_file):
     log.info("Simulation for '%s'" % tasks_file)
     simulation = FTPSimulation(start, stop, parse_tasks(tasks_file))
     simulation.run()
-    simulation.plot()
+    simulation.output()
 
 
 class FTPSimulationException(Exception):
@@ -227,6 +227,25 @@ class Job:
         return str(self)
 
 
+class Event:
+    def __init__(self):
+        self.computed_job = None
+        self.deadlines, self.arrivals = [], []
+        self.missed_deadlines = []
+
+    def __str__(self):
+        string = ""
+        string += "Job=" + str(self.computed_job)
+        string += " Arrivals=" + str(self.arrivals)
+        string += " Deadlines=" + str(self.deadlines)
+        string += " Missed D.=" + str(self.missed_deadlines)
+
+        return string
+
+    def __repr__(self):
+        return str(self)
+
+
 class FTPSimulation:
     def __init__(self, start, stop, tasks):
         self.start = start
@@ -238,8 +257,17 @@ class FTPSimulation:
         self.pending_jobs = [[] for _ in range(self.tasks_count)]
         self.previous_job = None
         self.current_job_computation = 0
-        self._missed_jobs = [0 for i in range(self.tasks_count)]
-        self.scheduling = [[] for i in range(self.tasks_count)]
+        self._missed_jobs = [0 for _ in range(self.tasks_count)]
+        self._scheduling = [[] for _ in range(self.tasks_count)]
+        self._events = []
+
+    @property
+    def scheduling(self):
+        return self._scheduling
+
+    @property
+    def events(self):
+        return self._events
 
     @property
     def missed_jobs(self):
@@ -338,64 +366,73 @@ class FTPSimulation:
         """
         active_job = self.get_active_job()
         self.add_scheduling_data(active_job)
+        self.events[t].computed_job = active_job
         if active_job is not None:
             log.debug("Computing %s" % active_job)
             active_job.compute()
             if active_job.done():
                 log.debug("%s: Removing job from pending: %s" % (t, active_job))
                 self.pending_jobs[active_job.task_id].remove(active_job)
-
-        if self.previous_job is None:
-            # First job to compute
-            self.previous_job = active_job
-            # When no job where computed before,
-            # there is no delay for the computation
-            # FIXME why 0 and not 1 ?
-            # FIXME Look at how the simulation behave when active job is done
-            # FIXME I think it consider the computing of the next job as not start
-            # FIXME when the active-job is finished
-            self.current_job_computation = 0
-
-        if self.previous_job != active_job:
-            # FIXME make sure that __diff__ is impl or doesnt give any trouble
-            log.debug("%s: New job %s to be computed" % (t, active_job))
-            print("%s-%s: %s" % (t - self.current_job_computation, t,
-                                 self.previous_job))
-            self.previous_job = active_job
-            self.current_job_computation = 1
-        elif self.previous_job is not None:
-            self.current_job_computation += 1
+        # TODO the code below might be useless if we print after the process
+        # TODO to be tested
+        #
+        # if self.previous_job is None:
+        #     # First job to compute
+        #     self.previous_job = active_job
+        #     # When no job where computed before,
+        #     # there is no delay for the computation
+        #     # FIXME why 0 and not 1 ?
+        #     # FIXME Look at how the simulation behave when active job is done
+        #     # FIXME I think it consider the computing of the next job as not start
+        #     # FIXME when the active-job is finished
+        #     self.current_job_computation = 0
+        #
+        # if self.previous_job != active_job:
+        #     # FIXME make sure that __diff__ is impl or doesnt give any trouble
+        #     log.debug("%s: New job %s to be computed" % (t, active_job))
+        #     print("%s-%s: %s" % (t - self.current_job_computation, t,
+        #                          self.previous_job))
+        #     self.previous_job = active_job
+        #     self.current_job_computation = 1
+        # elif self.previous_job is not None:
+        #     self.current_job_computation += 1
 
     def run(self):
-        print("Schedule from: %d to: %d ; %d tasks"
-              % (self.start, self.stop, self.tasks_count))
         finterval = (0, self.S + self.P)
         log.debug("Sn = %s ; P = %s" % finterval)
         log.info("Feasibility/Periodicity"
                  " interval of simulation (0, Sn + P) = %s " % str(finterval))
 
         for t in range(self.start, self.stop + 1):
+            self.events.append(Event())
             log.debug("%s: pending jobs: %s" % (t, self.pending_jobs))
             # FIXME why deadline should occur before computer ?
             # FIXME look miss.txt example for confusion
             job_deadlines = self.get_job_deadlines(t)
-            # print ("deeadline jobs :", job_deadlines)
             log.debug("%s: job deadlines: %s" % (t, job_deadlines))
             for task_id in range(self.tasks_count):
                 for job in job_deadlines[task_id]:
                     if self.miss_deadline(job):
-                        print("%s: Job %s misses a deadline" % (t, job))
+                        # print("%s: Job %s misses a deadline" % (t, job))
+                        self.events[t].missed_deadlines.append(job)
                         self.missed_jobs[job.task_id] += 1
-                        print(self.missed_jobs)
                     else:
-                        print("%s: Deadline of job %s" % (t, job))
+                        self.events[t].deadlines.append(job)
+                        # print("%s: Deadline of job %s" % (t, job))
             requested_jobs = self.add_arrivals(t)
             log.debug("%s: requested jobs: %s" % (t, requested_jobs))
             self.compute(t)
             for task_id in range(self.tasks_count):
                 for job in requested_jobs[task_id]:
-                    print("%s: Arrival of job %s" % (t, job))
+                    self.events[t].arrivals.append(job)
+                    # print("%s: Arrival of job %s" % (t, job))
             log.debug("Scheduling data: %s" % self.scheduling)
+
+    def output(self):
+        print("Schedule from: %d to: %d ; %d tasks"
+              % (self.start, self.stop, self.tasks_count))
+        for t in range(len(self.events)):
+            print(t, ':', self.events[t])
 
     def plot(self):
 
@@ -426,8 +463,9 @@ class FTPSimulation:
             ylabels.append("T%s" % t)
         ax.set_yticklabels(ylabels)
         plt.ylim(len(self.scheduling), 0)
-        plt.savefig('scheduler', bbox_inches='tight'    )
+        plt.savefig('scheduler', bbox_inches='tight')
         plt.close()
+
 
 def lowest_priority_viable(tasks, start, stop, index):
     """
@@ -441,18 +479,18 @@ def lowest_priority_viable(tasks, start, stop, index):
     print(tasks_copy)
     simulation = FTPSimulation(start, stop, tasks_copy)
     simulation.run()
-    missed_jobs = simulation.get_missed_jobs()[index]
-    log.info("Tasks missed jobs '%s'" % simulation.get_missed_jobs())
+    missed_jobs = simulation.missed_jobs[index]
+    log.info("Tasks missed jobs '%s'" % simulation.missed_jobs)
     return missed_jobs == 0
 
 
 def audsley_search(first, last, tasks, level=0):
     for i in range(len(tasks)):
         if lowest_priority_viable(tasks, first, last, i):
-            print(("\t" * level), "Task %d is lowest priority viable")
+            print((" " * level), "Task %d is lowest priority viable" % i)
             audsley_search(first, last, tasks[:i] + tasks[i + 1:], level + 1)
         else:
-            print(("\t" * level), "Task %d is not lowest priority viable")
+            print((" " * level), "Task %d is not lowest priority viable" % i)
 
 
 def audsley(first, last, tasks_file):
