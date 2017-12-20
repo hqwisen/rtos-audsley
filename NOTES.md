@@ -24,3 +24,13 @@ Formulas:
 (t - offset) // period
 
 ((t - offset) // deadline) - 1
+
+## Output
+
+if in t:
+-- if something finshed
+---- print it
+-- if something happens
+---- if job wa running
+------ print it
+---- print it

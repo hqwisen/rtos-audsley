@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 log = logging.getLogger()
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.FATAL)
 
 # Tasks keys
 TASK_KEYS = ['offset', 'period', 'deadline', 'WCET']
@@ -232,23 +232,47 @@ class Job:
 
 
 class Event:
-    def __init__(self):
+    def __init__(self, t):
+        self.t = t
         self.computed_job = None
         self.deadlines, self.arrivals = [], []
         self.missed_deadlines = []
 
-    def no_requests(self):
-        return len(self.deadlines) == 0 \
-               and len(self.arrivals) == 0 and len(self.missed_deadlines) == 0
+    def has_requests(self):
+        return self.has_deadlines() \
+               or self.has_arrivals() or self.has_missed_deadlines()
 
-    def print(self, t):
+    def has_arrivals(self):
+        return len(self.arrivals) != 0
+
+    def has_deadlines(self):
+        return len(self.deadlines) != 0
+
+    def has_missed_deadlines(self):
+        return len(self.missed_deadlines) != 0
+
+    def has_all_deadlines(self):
+        return self.has_deadlines() or self.has_missed_deadlines()
+
+    def print_arrivals(self):
         for job in self.arrivals:
-            print("%s: Arrival of job %s" % (t, job))
+            print("%s: Arrival of job %s" % (self.t, job))
 
+    def print_deadlines(self):
         for job in self.deadlines:
-            print("%s: Deadline of job %s" % (t, job))
+            print("%s: Deadline of job %s" % (self.t, job))
+
+    def print_missed_deadlines(self):
         for job in self.missed_deadlines:
-            print("%s: Job %s misses a deadline" % (t, job))
+            print("%s: Job %s misses a deadline" % (self.t, job))
+
+    def print_all_deadlines(self):
+        self.print_deadlines()
+        self.print_missed_deadlines()
+
+    def print(self):
+        self.print_arrivals()
+        self.print_all_deadlines()
 
     def __str__(self):
         string = ""
@@ -421,7 +445,7 @@ class FTPSimulation:
                  " interval of simulation (0, Sn + P) = %s " % str(finterval))
 
         for t in range(self.start, self.stop + 1):
-            self.events.append(Event())
+            self.events.append(Event(t))
             log.debug("%s: pending jobs: %s" % (t, self.pending_jobs))
             # FIXME why deadline should occur before computer ?
             # FIXME look miss.txt example for confusion
@@ -448,30 +472,77 @@ class FTPSimulation:
     def output(self):
         print("Schedule from: %d to: %d ; %d tasks"
               % (self.start, self.stop, self.tasks_count))
-        compute_start, compute_shift = 0, 1
-        computed_job = None
-        for t in range(0, len(self.events)):
+        compute_start, compute_shift = 0, 0
 
-            if computed_job is None:
-                computed_job = self.events[t].computed_job
+        if len(self.events) == 0:
+            print("(Nothing to compute)")
+            return;
 
-            if self.events[t].no_requests():
-                if computed_job is not None:
-                    compute_shift += 1
-                    if computed_job != self.events[t].computed_job:
-                        print("%s-%s: %s" % (compute_start,
-                                             compute_start + compute_shift,
-                                             computed_job))
-                        compute_start, compute_shift = t, 1
-                        computed_job = self.events[t].computed_job
-            else:
-                if t != 0:
+        computed_job = self.events[0].computed_job
+        self.events[0].print()
+        for t in range(1, len(self.events)):
+
+            if computed_job is not None:
+                compute_shift += 1
+                if computed_job != self.events[t].computed_job \
+                        or self.events[t].has_requests():
                     print("%s-%s: %s" % (compute_start,
                                          compute_start + compute_shift,
                                          computed_job))
-                    compute_start, compute_shift = t, 1
-                    computed_job = self.events[t].computed_job
-                self.events[t].print(t)
+                    compute_start, compute_shift = t, 0
+            else:
+                compute_start, compute_shift = t, 0
+
+            computed_job = self.events[t].computed_job
+            self.events[t].print()
+
+        if computed_job is not None:
+            print("%s-%s: %s" % (compute_start,
+                                 compute_start + compute_shift,
+                                 computed_job))
+
+        # if self.events[t].has_all_deadlines():
+        #     pass
+
+        # if computed_job != event.computed_job:  # Job is finished
+        #     print("A%s-%s: %s" % (compute_start,
+        #                           compute_start + compute_shift,
+        #                           computed_job))
+        #     compute_start, compute_shift = t, 1
+        #     computed_job = self.events[t].computed_job
+        # elif computed_job is not None:
+        #     compute_shift += 1
+        # if t != 0 and self.events[t - 1].has_requests():
+        #     # event.print()
+        #     self.events[t - 1].print()
+        #     if computed_job is not None:
+        #         print("B%s-%s: %s" % (compute_start,
+        #                               compute_start + compute_shift,
+        #                               computed_job))
+        #         compute_start, compute_shift = t, 1
+        #         computed_job = self.events[t].computed_job
+        #
+        # #
+        # if computed_job is None:
+        #     computed_job = self.events[t].computed_job
+        #
+        # if self.events[t].no_requests():
+        #     if computed_job is not None:
+        #         compute_shift += 1
+        #         if computed_job != self.events[t].computed_job:
+        #             print("%s-%s: %s" % (compute_start,
+        #                                  compute_start + compute_shift - 1,
+        #                                  computed_job))
+        #             compute_start, compute_shift = t, 1
+        #             computed_job = self.events[t].computed_job
+        # else:
+        #     if t != 0:
+        #         print("%s-%s: %s" % (compute_start,
+        #                              compute_start + compute_shift - 1,
+        #                              computed_job))
+        #         compute_start, compute_shift = t, 1
+        #         computed_job = self.events[t].computed_job
+        #     self.events[t].print(t)
 
     def plot(self, filename):
         fig = plt.figure()
@@ -654,7 +725,8 @@ def lowest_priority_viable(tasks, start, stop, index):
     tasks and number of missed jobs for every task return false if the
     task given on index miss a job
     """
-    # FIXME add a condition either here or in the simulation if len(tasks) == 1 (or 0)
+    # FIXME add a condition either here or in the simulation
+    # FIXME if len(tasks) == 1 (or 0)
     # FIXME make sure that it is a deepcopy
     tasks_copy = tasks[:index] + tasks[index + 1:] + [tasks[index]]
     print(tasks_copy)

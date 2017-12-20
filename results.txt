@@ -1,23 +1,4 @@
-Schedule from: 0 to: 10 ; 2 tasks
+Schedule from: 0 to: 20 ; 2 tasks
 0: Arrival of job T1J1
-0: Arrival of job T2J1
-1: Job T1J1 misses a deadline
-2: Deadline of job T1J2
-0-2: T1J1
-3: Deadline of job T1J3
-4: Deadline of job T1J4
-2-4: T2J1
-5: Deadline of job T1J5
-5: Deadline of job T2J1
-5: Arrival of job T1J2
-5: Arrival of job T2J2
-6: Deadline of job T1J6
-7: Deadline of job T1J7
-5-7: T1J2
-8: Deadline of job T1J8
-9: Deadline of job T1J9
-7-9: T2J2
-10: Deadline of job T1J10
-10: Deadline of job T2J2
-10: Arrival of job T1J3
-10: Arrival of job T2J3
+5: Arrival of job T2J1
+0-10: T1J1
