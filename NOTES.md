@@ -24,7 +24,7 @@ Formulas:
 
 (t - offset) // period
 
-((t - offset) // deadline) - 1
+is arrival for (t - deadline)
 
 ## Output
 
@@ -35,3 +35,5 @@ if in t:
 ---- if job wa running
 ------ print it
 ---- print it
+
+Explique comment j'output
