@@ -576,7 +576,7 @@ class Generator:
 
     def close_to(self, utilisation, founded_util):
         """Return True if the utilisation founded is close to utilisation asked"""
-        max_difference = 4 # the maximum of difference between the utilisation given on parameter and the founded one 
+        max_difference = 2 # the maximum of difference between the utilisation given on parameter and the founded one 
                             #here ( we followed the logic of round)
         
         valid_approximation = founded_util >= (
@@ -585,8 +585,11 @@ class Generator:
 
     def close_to_util(self, utilisation, founded_util):
         """Return True if the utilisation founded is on a good interval"""
+        max_difference = 2 # the maximum of difference between the utilisation given on parameter and the founded one 
+                            #here ( we followed the logic of round)
+
         valid_approximation = founded_util >= (
-                utilisation - 4) and founded_util < utilisation  # 4 is an arbitrary choice ( we follow the logic of round)
+                utilisation - max_difference) and founded_util < utilisation  # 4 is an arbitrary choice ( we follow the logic of round)
         return valid_approximation
 
     def system_utilisation(self, tasks):
