@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 log = logging.getLogger()
-logging.basicConfig(level=logging.FATAL)
+logging.basicConfig(level=logging.DEBUG)
 
 # Tasks keys
 TASK_KEYS = ['offset', 'period', 'deadline', 'WCET']
@@ -44,6 +44,16 @@ def parse_args():
                             help='Stop point of the simulation.')
     add_task_arg(sim_parser)
     sim_parser.set_defaults(action="sim")
+
+    plot_parser = subparsers.add_parser('plot',
+                                        help='Plot the FTP simulation '
+                                             'for a given period.')
+    plot_parser.add_argument(dest='start', type=int,
+                             help='Start point of the simulation.')
+    plot_parser.add_argument(dest='stop', type=int,
+                             help='Stop point of the simulation.')
+    add_task_arg(plot_parser)
+    plot_parser.set_defaults(action="plot")
 
     audsley_parser = subparsers.add_parser('audsley',
                                            help='Depicts the research made by '
@@ -174,21 +184,6 @@ def calculate_s(tasks, i=None):
         # FIXME check that the formula is correct
         return offset + \
                (math.ceil(max(previous_s - offset, 0) / period) * period)
-
-
-def interval(tasks_file):
-    log.info("Feasibility interval of '%s'" % tasks_file)
-    tasks = parse_tasks(tasks_file)
-    omax = max([task[O] for task in tasks])
-    P = hyper_period(tasks)
-    print(omax, omax + (2 * P))
-
-
-def sim(start, stop, tasks_file):
-    log.info("Simulation for '%s'" % tasks_file)
-    simulation = FTPSimulation(start, stop, parse_tasks(tasks_file))
-    simulation.run()
-    simulation.output()
 
 
 class FTPSimulationException(Exception):
@@ -443,7 +438,7 @@ class FTPSimulation:
         for t in range(len(self.events)):
             print(t, ':', self.events[t])
 
-    def plot(self):
+    def plot(self, filename):
 
         fig = plt.figure()
         ax = fig.add_subplot(111)
@@ -472,44 +467,12 @@ class FTPSimulation:
             ylabels.append("T%s" % t)
         ax.set_yticklabels(ylabels)
         plt.ylim(len(self.scheduling), 0)
-        plt.savefig('scheduler', bbox_inches='tight')
+        plt.savefig(filename, bbox_inches='tight')
         plt.close()
 
 
 # def avg(a, b):
 #     return (a + b) / 2.0
-
-
-def lowest_priority_viable(tasks, start, stop, index):
-    """
-    Uses missed_jobs wihch contains
-    tasks and number of missed jobs for every task return false if the
-    task given on index miss a job
-    """
-    # FIXME add a condition either here or in the simulation if len(tasks) == 1 (or 0)
-    # FIXME make sure that it is a deepcopy
-    tasks_copy = tasks[:index] + tasks[index + 1:] + [tasks[index]]
-    print(tasks_copy)
-    simulation = FTPSimulation(start, stop, tasks_copy)
-    simulation.run()
-    missed_jobs = simulation.missed_jobs[index]
-    log.info("Tasks missed jobs '%s'" % simulation.missed_jobs)
-    return missed_jobs == 0
-
-
-def audsley_search(first, last, tasks, level=0):
-    for i in range(len(tasks)):
-        if lowest_priority_viable(tasks, first, last, i):
-            print((" " * level), "Task %d is lowest priority viable" % i)
-            audsley_search(first, last, tasks[:i] + tasks[i + 1:], level + 1)
-        else:
-            print((" " * level), "Task %d is not lowest priority viable" % i)
-
-
-def audsley(first, last, tasks_file):
-    log.info("Running audsley command with '%s'" % tasks_file)
-    audsley_search(first, last, parse_tasks(tasks_file))
-
 
 class Generator:
     def __init__(self, utilisation_factor, number_of_tasks):
@@ -643,6 +606,61 @@ def gen(utilisation_factor, number_of_tasks, tasks_file):
     log.info("Generation of  '%s'" % number_of_tasks)
     Generator(utilisation_factor,
               number_of_tasks).generate_tasks_on_file(tasks_file)
+
+
+def interval(tasks_file):
+    log.info("Feasibility interval of '%s'" % tasks_file)
+    tasks = parse_tasks(tasks_file)
+    omax = max([task[O] for task in tasks])
+    P = hyper_period(tasks)
+    print(omax, omax + (2 * P))
+
+
+def sim(start, stop, tasks_file):
+    log.info("Simulation for '%s'" % tasks_file)
+    simulation = FTPSimulation(start, stop, parse_tasks(tasks_file))
+    simulation.run()
+    simulation.output()
+
+
+def lowest_priority_viable(tasks, start, stop, index):
+    """
+    Uses missed_jobs wihch contains
+    tasks and number of missed jobs for every task return false if the
+    task given on index miss a job
+    """
+    # FIXME add a condition either here or in the simulation if len(tasks) == 1 (or 0)
+    # FIXME make sure that it is a deepcopy
+    tasks_copy = tasks[:index] + tasks[index + 1:] + [tasks[index]]
+    print(tasks_copy)
+    simulation = FTPSimulation(start, stop, tasks_copy)
+    simulation.run()
+    missed_jobs = simulation.missed_jobs[index]
+    log.info("Tasks missed jobs '%s'" % simulation.missed_jobs)
+    return missed_jobs == 0
+
+
+def audsley_search(first, last, tasks, level=0):
+    for i in range(len(tasks)):
+        if lowest_priority_viable(tasks, first, last, i):
+            print((" " * level), "Task %d is lowest priority viable" % i)
+            audsley_search(first, last, tasks[:i] + tasks[i + 1:], level + 1)
+        else:
+            print((" " * level), "Task %d is not lowest priority viable" % i)
+
+
+def audsley(first, last, tasks_file):
+    log.info("Running audsley command with '%s'" % tasks_file)
+    audsley_search(first, last, parse_tasks(tasks_file))
+
+
+def plot(start, stop, tasks_file):
+    log.info("Running simulation (for plot) on '%s'" % tasks_file)
+    simulation = FTPSimulation(start, stop, parse_tasks(tasks_file))
+    simulation.run()
+    filename = "scheduler.png"
+    print("Plotting to '%s'" % filename)
+    simulation.plot(filename)
 
 
 def main():

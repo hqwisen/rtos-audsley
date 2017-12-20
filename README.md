@@ -14,6 +14,12 @@ python3 project.py interval <tasksFile>
 ```
 python3 project.py sim <start> <stop> <tasksFile>
 ```
+
+```
+python3 project.py plot <start> <stop> <tasksFile>
+```
+
+
 ```
 python3 project.py audsley <first> <last> <tasksFile>
 ```
