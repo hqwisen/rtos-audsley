@@ -23,3 +23,7 @@ python3 project.py plot <start> <stop> <tasksFile>
 ```
 python3 project.py audsley <first> <last> <tasksFile>
 ```
+
+```
+python3 project.py gen <number_of_tasks> <utilisation_factor> <tasksFile>
+```
