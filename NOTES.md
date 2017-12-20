@@ -16,11 +16,24 @@ Provide a two-implementation of the simulator, one discrete, and one periodic.
 
 # Arrivals and Deadlines
 
-Since those action are periodic, we can calculate them using modulo
+Since those action are periodic, we can calculate them using modulo.
 
+Arrivals are periodic, deadline are arrivals + deadline periodicité
 
 Formulas:
 
 (t - offset) // period
 
-((t - offset) // deadline) - 1
+is arrival for (t - deadline)
+
+## Output
+
+if in t:
+-- if something finshed
+---- print it
+-- if something happens
+---- if job wa running
+------ print it
+---- print it
+
+Explique comment j'output

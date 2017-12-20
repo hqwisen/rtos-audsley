@@ -104,3 +104,8 @@ venv.bak/
 ### PyCharm ###
 
 .idea
+
+### rtos-ley ###
+
+scheduler.png
+results*
