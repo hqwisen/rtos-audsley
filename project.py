@@ -731,10 +731,10 @@ def lowest_priority_viable(tasks, task_id, start, stop):
     # FIXME add a condition either here or in the simulation
     # FIXME if len(tasks) == 1 (or 0)
     # FIXME make sure that it is a deepcopy
-    print("Initial tasks:", tasks)
+    # print("Initial tasks:", tasks)
     tasks_copy = tasks[:task_id] + tasks[task_id + 1:] + [tasks[task_id]]
     tasks_copy = copy.deepcopy(tasks_copy)
-    print("Tasks copy:", tasks_copy)
+    # print("Tasks copy:", tasks_copy)
     simulation = FTPSimulation(start, stop, tasks_copy)
     simulation.run()
     # task_id is at the end when we test the lowest prio. viability
@@ -743,17 +743,47 @@ def lowest_priority_viable(tasks, task_id, start, stop):
     return missed_jobs == 0
 
 
-def audsley_search(first, last, tasks, indices, level=0):
-    for task_id in indices:
-        if lowest_priority_viable(tasks, task_id, first, last):
-            print((" " * level), "Task %d is lowest priority viable"
+def filter_tasks_list(tasks, task_id, includes):
+    """
+    Return a list of tasks filters, by including only the indices from includes.
+    :param tasks: list of tasks
+    :param task_id: task_id to use for the new index
+    :param includes: indices of elements to filter
+    :return: the sub_tasks list with the corresponding sub_task_id of the
+    element with index task_id in tasks.
+    Example: tasks = [A, B, C] includes = [0, 2] task_id = 2 (index of C)
+    will return [A, C], 1 (only the include element and the new index)
+    """
+    sub_tasks, sub_task_id = [], None
+    for i in range(len(tasks)):
+        if i in includes:
+            sub_tasks.append(tasks[i])
+        if task_id == i:
+            sub_task_id = len(sub_tasks) - 1
+    return sub_tasks, sub_task_id
+
+
+def audsley_search(first, last, tasks, includes, level=0):
+    """
+    Implementation of the audsley algorithm
+    :param first: Start point of the simulation
+    :param last: last point of the simulation
+    :param tasks: list of all tasks, where index of element is the task_id
+    :param includes: task_ids of element to run audsley algo on
+    :param level: level of recursion of algorithm
+    :return: None
+    """
+    for task_id in includes:
+        sub_tasks, sub_task_id = filter_tasks_list(tasks, task_id, includes)
+        if lowest_priority_viable(sub_tasks, sub_task_id, first, last):
+            print((" " * level) + "Task %d is lowest priority viable"
                   % (task_id + 1))
-            new_indices = indices[:]
+            new_indices = includes[:]
             new_indices.remove(task_id)
             audsley_search(first, last, tasks, new_indices,
                            level + 1)
         else:
-            print((" " * level), "Task %d is not lowest priority viable"
+            print((" " * level) + "Task %d is not lowest priority viable"
                   % (task_id + 1))
 
 
