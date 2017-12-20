@@ -2,6 +2,7 @@ import argparse
 import logging
 import math
 import sys
+import copy
 from math import gcd
 from random import randint
 
@@ -163,6 +164,10 @@ def lcm(*elems):
 
 
 def hyper_period(tasks):
+    if len(tasks) == 0:
+        return None
+    elif len(tasks) == 1:
+        return tasks[0][T]
     return lcm(*[task[T] for task in tasks])
 
 
@@ -174,6 +179,9 @@ def calculate_s(tasks, i=None):
     :param i: S_{i} value to calculate. If set to None, will return S_{n}.
     :return: S_{i} value
     """
+
+    if len(tasks) == 0:
+        return None
     if i is None:
         return calculate_s(tasks, len(tasks) - 1)
     elif i == 0:
@@ -339,14 +347,9 @@ class FTPSimulation:
         :return: (job_id, True) if task_id have a deadline at time t,
         (None, False) otherwise. (first job_id is 0)
         """
-        offset, deadline = self.tasks[task_id][O], self.tasks[task_id][D]
-        cond = (t - offset > 0) and ((t - offset) % deadline) == 0
-        # There is no deadline  at (t - offset) = 0, since there is no job
-        #  before, so the deadline is for the job that was
-        # running previously, i.e -1
-        #  module == 0 i.e. no decimals
-        job_id = ((t - offset) // deadline) - 1
-        return (job_id, True) if cond else (None, False)
+
+        deadline = self.tasks[task_id][D]
+        return self.is_arrival_for(t - deadline, task_id)
 
     def _jobs_for(self, t, test_func):
         """
@@ -467,7 +470,7 @@ class FTPSimulation:
                 for job in requested_jobs[task_id]:
                     self.events[t].arrivals.append(job)
                     # print("%s: Arrival of job %s" % (t, job))
-            log.debug("Scheduling data: %s" % self.scheduling)
+            # log.debug("Scheduling data: %s" % self.scheduling)
 
     def output(self):
         print("Schedule from: %d to: %d ; %d tasks"
@@ -496,7 +499,7 @@ class FTPSimulation:
             computed_job = self.events[t].computed_job
             self.events[t].print()
 
-        if computed_job is not None:
+        if computed_job is not None and compute_shift > 0:
             print("%s-%s: %s" % (compute_start,
                                  compute_start + compute_shift,
                                  computed_job))
@@ -719,7 +722,7 @@ def sim(start, stop, tasks_file):
     simulation.output()
 
 
-def lowest_priority_viable(tasks, start, stop, index):
+def lowest_priority_viable(tasks, task_id, start, stop):
     """
     Uses missed_jobs wihch contains
     tasks and number of missed jobs for every task return false if the
@@ -728,27 +731,37 @@ def lowest_priority_viable(tasks, start, stop, index):
     # FIXME add a condition either here or in the simulation
     # FIXME if len(tasks) == 1 (or 0)
     # FIXME make sure that it is a deepcopy
-    tasks_copy = tasks[:index] + tasks[index + 1:] + [tasks[index]]
-    print(tasks_copy)
+    print("Initial tasks:", tasks)
+    tasks_copy = tasks[:task_id] + tasks[task_id + 1:] + [tasks[task_id]]
+    tasks_copy = copy.deepcopy(tasks_copy)
+    print("Tasks copy:", tasks_copy)
     simulation = FTPSimulation(start, stop, tasks_copy)
     simulation.run()
-    missed_jobs = simulation.missed_jobs[index]
+    # task_id is at the end when we test the lowest prio. viability
+    missed_jobs = simulation.missed_jobs[-1]
     log.info("Tasks missed jobs '%s'" % simulation.missed_jobs)
     return missed_jobs == 0
 
 
-def audsley_search(first, last, tasks, level=0):
-    for i in range(len(tasks)):
-        if lowest_priority_viable(tasks, first, last, i):
-            print((" " * level), "Task %d is lowest priority viable" % i)
-            audsley_search(first, last, tasks[:i] + tasks[i + 1:], level + 1)
+def audsley_search(first, last, tasks, indices, level=0):
+    for task_id in indices:
+        if lowest_priority_viable(tasks, task_id, first, last):
+            print((" " * level), "Task %d is lowest priority viable"
+                  % (task_id + 1))
+            new_indices = indices[:]
+            new_indices.remove(task_id)
+            audsley_search(first, last, tasks, new_indices,
+                           level + 1)
         else:
-            print((" " * level), "Task %d is not lowest priority viable" % i)
+            print((" " * level), "Task %d is not lowest priority viable"
+                  % (task_id + 1))
 
 
 def audsley(first, last, tasks_file):
     log.info("Running audsley command with '%s'" % tasks_file)
-    audsley_search(first, last, parse_tasks(tasks_file))
+    tasks = parse_tasks(tasks_file)
+    indices = [i for i in range(len(tasks))]
+    audsley_search(first, last, tasks, indices)
 
 
 def plot(start, stop, tasks_file):

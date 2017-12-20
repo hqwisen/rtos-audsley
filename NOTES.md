@@ -16,8 +16,9 @@ Provide a two-implementation of the simulator, one discrete, and one periodic.
 
 # Arrivals and Deadlines
 
-Since those action are periodic, we can calculate them using modulo
+Since those action are periodic, we can calculate them using modulo.
 
+Arrivals are periodic, deadline are arrivals + deadline periodicité
 
 Formulas:
 
