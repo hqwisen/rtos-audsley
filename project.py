@@ -56,15 +56,21 @@ def parse_args():
     add_task_arg(audsley_parser)
     audsley_parser.set_defaults(action="audsley")
 
-    generator_parser = subparsers.add_parser('geneartor',
+    gen_parser = subparsers.add_parser('gen',
                                              help='Generate a random  '
                                                   'random periodic, asynchronous '
                                                   'systems with constrained deadlines.')
-    generator_parser.add_argument(dest='utilisation_factor', type=int,
-                                  help='Utilisation factor of the system')
-    generator_parser.add_argument(dest='number_of_tasks', type=int,
+ 
+    gen_parser.add_argument(dest='number_of_tasks', type=int,
                                   help='Number of tasks')
-
+    gen_parser.add_argument(dest='utilisation_factor', type=int,
+                                  help='Utilisation factor of the system')
+    
+    gen_parser.add_argument(dest='tasks_file', type=str,
+                        help='File containing genearted tasks where every task has this format: '
+                             ' Offset, Period, Deadline and WCET.')
+    gen_parser.set_defaults(action="gen")
+    
     return vars(parser.parse_args())
 
 
@@ -506,7 +512,12 @@ class Generator:
     def __init__(self, utilisation_factor, number_of_tasks):
         self.utilisation_factor = utilisation_factor
         self.number_of_tasks = number_of_tasks
-
+        self.maximum_arbitrary_offset = 300
+        self.maximum_arbitrary_period = 100
+        self.minimum_offset = 0
+        self.minium_period = 1
+        self.minum_wcet = 1
+    
     def generate(self):
         """The System must just respect this inequlaity Ci <= Di <= Ti for every task i"""
         task = [0 for _ in range(N_TASK_KEYS)]
@@ -516,11 +527,11 @@ class Generator:
         use_of_system = 0
         t = 0
         while t < self.number_of_tasks:
-            all_tasks[t][O] = randint(0,
-                                      300)  # offset can be equal to 0, 300 is completly arbitrary
-            all_tasks[t][T] = randint(1,
-                                      100)  # period this one can't be equal to 0 but it can be arbitrary too
-            all_tasks[t][C] = randint(1, all_tasks[t][T])  # Ci <= Di <= Ti
+            all_tasks[t][O] = randint(self.minimum_offset,
+                                      self.maximum_arbitrary_offset)  # offset can be equal to 0, 300 is completly arbitrary
+            all_tasks[t][T] = randint(self.minium_period,
+                                      self.maximum_arbitrary_period)  # period this one can't be equal to 0 but it can be arbitrary too
+            all_tasks[t][C] = randint(self.minum_wcet, all_tasks[t][T])  # Ci <= Di <= Ti
             all_tasks[t][D] = randint(all_tasks[t][C],
                                       all_tasks[t][T])  # Ci <= Di <= Ti
             use_of_system += (self.task_utilisation(all_tasks[t]))
@@ -550,10 +561,10 @@ class Generator:
             use_of_system = 0
             t = 0
             for i in range(self.number_of_tasks):
-                all_tasks[i][O] = randint(0,
-                                          300)  # offset can be equal to 0, 300 is completly arbitrary
-                all_tasks[i][T] = randint(1, 100)
-                all_tasks[i][C] = randint(1, all_tasks[i][T])
+                all_tasks[i][O] = randint(self.minimum_offset,
+                                          self.maximum_arbitrary_offset)  # offset can be equal to 0, 300 is completly arbitrary
+                all_tasks[i][T] = randint(self.minium_period, self.maximum_arbitrary_period)
+                all_tasks[i][C] = randint(self.minum_wcet, all_tasks[i][T])
                 all_tasks[i][D] = randint(all_tasks[i][C], all_tasks[i][T])
                 use_of_system += (self.task_utilisation(all_tasks[i]))
                 log.info("use_of_system  '%s'" % use_of_system)
@@ -565,8 +576,11 @@ class Generator:
 
     def close_to(self, utilisation, founded_util):
         """Return True if the utilisation founded is close to utilisation asked"""
+        max_difference = 4 # the maximum of difference between the utilisation given on parameter and the founded one 
+                            #here ( we followed the logic of round)
+        
         valid_approximation = founded_util >= (
-                utilisation - 4)  # 4 is an arbitrary choice ( we follow the logic of round)
+                utilisation - max_difference)  
         return valid_approximation
 
     def close_to_util(self, utilisation, founded_util):
@@ -583,9 +597,9 @@ class Generator:
         result *= 100
         return result
 
-    def generate_tasks_on_file(self):
+    def generate_tasks_on_file(self,filename):
         """genearate the tasks and write them on a file"""
-        f = open("tasks_generated.txt", "w")
+        f = open(filename, "w")
         all_tasks = self.generate()
         for task in all_tasks:
             for element in task:
@@ -597,12 +611,16 @@ class Generator:
                 all_tasks))
 
 
+
+def gen(utilisation_factor, number_of_tasks, tasks_file):
+    log.info("Generation of  '%s'" % number_of_tasks)
+    Generator(utilisation_factor,number_of_tasks).generate_tasks_on_file(tasks_file)
+
 def avg(a, b):
     return (a + b) / 2.0
 
 
 def main():
-    # pass
     kwargs = parse_args()
     action = kwargs['action']
     del kwargs['action']
