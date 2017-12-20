@@ -1,14 +1,15 @@
 import argparse
 import logging
+import math
 import sys
 from math import gcd
-from random import randint, shuffle
+from random import randint
 
-import math
+import matplotlib.pyplot as plt
+import numpy as np
 
 log = logging.getLogger()
-# log.propagate = False
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.FATAL)
 
 # Tasks keys
 TASK_KEYS = ['offset', 'period', 'deadline', 'WCET']
@@ -176,7 +177,9 @@ def interval(tasks_file):
 
 def sim(start, stop, tasks_file):
     log.info("Simulation for '%s'" % tasks_file)
-    FTPSimulation(start, stop, parse_tasks(tasks_file)).run()
+    simulation = FTPSimulation(start, stop, parse_tasks(tasks_file))
+    simulation.run()
+    simulation.plot()
 
 
 class FTPSimulationException(Exception):
@@ -324,7 +327,8 @@ class FTPSimulation:
     def add_scheduling_data(self, active_job):
         for task_id in range(self.tasks_count):
             # 0 will be used as the idle points in the plots
-            value = task_id + 1 if task_id == active_job.task_id else 0
+            value = task_id + 1 if active_job is not None and \
+                                   task_id == active_job.task_id else 0
             self.scheduling[task_id].append(value)
 
     def compute(self, t):
@@ -333,11 +337,10 @@ class FTPSimulation:
         it's removed from pending_jobs.
         """
         active_job = self.get_active_job()
-
+        self.add_scheduling_data(active_job)
         if active_job is not None:
             log.debug("Computing %s" % active_job)
             active_job.compute()
-            self.add_scheduling_data(active_job)
             if active_job.done():
                 log.debug("%s: Removing job from pending: %s" % (t, active_job))
                 self.pending_jobs[active_job.task_id].remove(active_job)
@@ -394,6 +397,37 @@ class FTPSimulation:
                     print("%s: Arrival of job %s" % (t, job))
             log.debug("Scheduling data: %s" % self.scheduling)
 
+    def plot(self):
+
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        # ax.axes.get_yaxis().set_visible(False)
+        # ax.set_aspect(1)
+        data = self.scheduling[:]
+        for y, row in enumerate(data):
+            for x, col in enumerate(row):
+                x1 = [x, x + 1]
+                y1 = np.array([y, y])
+                y2 = y1 + 1
+                if col != 0:
+                    plt.fill_between(x1, y1, y2=y2, color='black')
+                    # plt.text(avg(x1[0], x1[1]), avg(y1[0], y2[0]), "T%s"%(y+1),
+                    #           horizontalalignment='center',
+                    #           verticalalignment='center')
+                else:
+                    plt.fill_between(x1, y1, y2=y2, color='white')
+                    # plt.text(avg(x1[0], x1[1]), avg(y1[0], y2[0]),
+                    #          "T%s" % (y + 1),
+                    #          horizontalalignment='center',
+                    #          verticalalignment='center')
+
+        ylabels = []
+        for t in range(self.tasks_count):
+            ylabels.append("T%s" % t)
+        ax.set_yticklabels(ylabels)
+        plt.ylim(len(self.scheduling), 0)
+        plt.savefig('scheduler', bbox_inches='tight'    )
+        plt.close()
 
 def lowest_priority_viable(tasks, start, stop, index):
     """
@@ -523,6 +557,10 @@ class Generator:
         log.info(
             "System utilisation of the generated tasks  '%s'" % self.system_utilisation(
                 all_tasks))
+
+
+def avg(a, b):
+    return (a + b) / 2.0
 
 
 def main():
