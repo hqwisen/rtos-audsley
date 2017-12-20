@@ -34,6 +34,7 @@ def parse_args():
                                                  'interval of given tasks.')
     add_task_arg(interval_parser)
     interval_parser.set_defaults(action='interval')
+
     sim_parser = subparsers.add_parser('sim',
                                        help='FTP simulator that simulates '
                                             'the system for a given period.')
@@ -57,20 +58,22 @@ def parse_args():
     audsley_parser.set_defaults(action="audsley")
 
     gen_parser = subparsers.add_parser('gen',
-                                             help='Generate a random  '
-                                                  'random periodic, asynchronous '
-                                                  'systems with constrained deadlines.')
- 
+                                       help='Generate a random  '
+                                            'random periodic, asynchronous '
+                                            'systems with '
+                                            'constrained deadlines.')
+
     gen_parser.add_argument(dest='number_of_tasks', type=int,
-                                  help='Number of tasks')
+                            help='Number of tasks')
     gen_parser.add_argument(dest='utilisation_factor', type=int,
-                                  help='Utilisation factor of the system')
-    
+                            help='Utilisation factor of the system')
+
     gen_parser.add_argument(dest='tasks_file', type=str,
-                        help='File containing genearted tasks where every task has this format: '
-                             ' Offset, Period, Deadline and WCET.')
+                            help='File containing genearted tasks where '
+                                 'every task has this format: '
+                                 ' Offset, Period, Deadline and WCET.')
     gen_parser.set_defaults(action="gen")
-    
+
     return vars(parser.parse_args())
 
 
@@ -473,6 +476,10 @@ class FTPSimulation:
         plt.close()
 
 
+# def avg(a, b):
+#     return (a + b) / 2.0
+
+
 def lowest_priority_viable(tasks, start, stop, index):
     """
     Uses missed_jobs wihch contains
@@ -504,34 +511,36 @@ def audsley(first, last, tasks_file):
     audsley_search(first, last, parse_tasks(tasks_file))
 
 
-# log.info("Audsley algorithm for '%s'" % tasks_file)
-# raise NotImplementedError("Function 'audsley' not implemented")
-
-
 class Generator:
     def __init__(self, utilisation_factor, number_of_tasks):
         self.utilisation_factor = utilisation_factor
         self.number_of_tasks = number_of_tasks
+        # This value are chosen arbitrary
         self.maximum_arbitrary_offset = 300
         self.maximum_arbitrary_period = 100
         self.minimum_offset = 0
+        # Period cannot be equal to 0
         self.minium_period = 1
         self.minum_wcet = 1
-    
+
     def generate(self):
-        """The System must just respect this inequlaity Ci <= Di <= Ti for every task i"""
+        """
+        The System must just respect this inequality
+        Ci <= Di <= Ti for every task i
+        """
         task = [0 for _ in range(N_TASK_KEYS)]
-        # print(task)
         all_tasks = [task[:] for i in range(self.number_of_tasks)]
         # adequate_system = False
         use_of_system = 0
         t = 0
         while t < self.number_of_tasks:
             all_tasks[t][O] = randint(self.minimum_offset,
-                                      self.maximum_arbitrary_offset)  # offset can be equal to 0, 300 is completly arbitrary
+                                      self.maximum_arbitrary_offset)
+
             all_tasks[t][T] = randint(self.minium_period,
-                                      self.maximum_arbitrary_period)  # period this one can't be equal to 0 but it can be arbitrary too
-            all_tasks[t][C] = randint(self.minum_wcet, all_tasks[t][T])  # Ci <= Di <= Ti
+                                      self.maximum_arbitrary_period)
+            all_tasks[t][C] = randint(self.minum_wcet,
+                                      all_tasks[t][T])  # Ci <= Di <= Ti
             all_tasks[t][D] = randint(all_tasks[t][C],
                                       all_tasks[t][T])  # Ci <= Di <= Ti
             use_of_system += (self.task_utilisation(all_tasks[t]))
@@ -540,16 +549,21 @@ class Generator:
                     (t == self.number_of_tasks and not self.close_to(
                         self.utilisation_factor,
                         use_of_system * 100)):
-                # if the system utilisation asked is not reached in the genearted system we  reintilize paramaters
+                # if the system utilisation asked is not reached
+                # in the generated system we reinitialize parameters
                 t = 0
-                task[:] = [0 for _ in range(
-                    N_TASK_KEYS)]  # we must do task[:] because of references lists in Python
+                # we must do task[:] because of references lists in Python
+                # FIXME make sure that there is no trouble with [:]
+                task[:] = [0 for _ in range(N_TASK_KEYS)]
                 all_tasks[:] = [task[:] for i in range(self.number_of_tasks)]
                 use_of_system = 0
         return all_tasks
 
     def gen(self):
-        """The System must just respect this inequlaity Ci <= Di <= Ti for every task i"""
+        """
+        The System must just respect this inequality
+         Ci <= Di <= Ti for every task i
+        """
         task = [0 for _ in range(N_TASK_KEYS)]
         all_tasks = [task[:] for i in range(self.number_of_tasks)]
         use_of_system = 0
@@ -562,43 +576,58 @@ class Generator:
             t = 0
             for i in range(self.number_of_tasks):
                 all_tasks[i][O] = randint(self.minimum_offset,
-                                          self.maximum_arbitrary_offset)  # offset can be equal to 0, 300 is completly arbitrary
-                all_tasks[i][T] = randint(self.minium_period, self.maximum_arbitrary_period)
+                                          self.maximum_arbitrary_offset)
+                all_tasks[i][T] = randint(self.minium_period,
+                                          self.maximum_arbitrary_period)
                 all_tasks[i][C] = randint(self.minum_wcet, all_tasks[i][T])
                 all_tasks[i][D] = randint(all_tasks[i][C], all_tasks[i][T])
                 use_of_system += (self.task_utilisation(all_tasks[i]))
                 log.info("use_of_system  '%s'" % use_of_system)
         return all_tasks
 
-    def task_utilisation(self, task):
-        """Calculate the utilisation of task WCET/PERIOD"""
+    def task_utilization(self, task):
+        """
+        Calculate the utilisation of task WCET/PERIOD
+        """
         return task[C] / task[T]
 
     def close_to(self, utilisation, founded_util):
-        """Return True if the utilisation founded is close to utilisation asked"""
-        max_difference = 4 # the maximum of difference between the utilisation given on parameter and the founded one 
-                            #here ( we followed the logic of round)
-        
+        """
+        Return True if the utilisation founded is close to utilisation asked
+        """
+        # the maximum of difference between the utilisation given
+        # on parameter and the founded one
+        max_difference = 4
+        # here ( we followed the logic of round)
         valid_approximation = founded_util >= (
-                utilisation - max_difference)  
+                utilisation - max_difference)
         return valid_approximation
 
     def close_to_util(self, utilisation, founded_util):
-        """Return True if the utilisation founded is on a good interval"""
-        valid_approximation = founded_util >= (
-                utilisation - 4) and founded_util < utilisation  # 4 is an arbitrary choice ( we follow the logic of round)
+        """
+        Return True if the utilisation founded is on a good interval
+        """
+
+        # 4 is an arbitrary choice ( we follow the logic of round)
+        valid_approximation = founded_util >= (utilisation - 4) \
+                              and founded_util < utilisation
         return valid_approximation
 
     def system_utilisation(self, tasks):
-        """Calculate the utilisation of the system which it's the sum of all tasks utilisation"""
+        """
+        Calculate the utilisation of the system
+        which it's the sum of all tasks utilisation
+        """
         result = 0
         for task in tasks:
             result += self.task_utilisation(task)
         result *= 100
         return result
 
-    def generate_tasks_on_file(self,filename):
-        """genearate the tasks and write them on a file"""
+    def generate_tasks_on_file(self, filename):
+        """
+        generate the tasks and write them on a file
+        """
         f = open(filename, "w")
         all_tasks = self.generate()
         for task in all_tasks:
@@ -606,18 +635,14 @@ class Generator:
                 f.write(str(element) + "  ")
             f.write("\n")
         f.close()
-        log.info(
-            "System utilisation of the generated tasks  '%s'" % self.system_utilisation(
-                all_tasks))
-
+        log.info("System utilisation of the generated tasks  '%s'"
+                 % self.system_utilisation(all_tasks))
 
 
 def gen(utilisation_factor, number_of_tasks, tasks_file):
     log.info("Generation of  '%s'" % number_of_tasks)
-    Generator(utilisation_factor,number_of_tasks).generate_tasks_on_file(tasks_file)
-
-def avg(a, b):
-    return (a + b) / 2.0
+    Generator(utilisation_factor,
+              number_of_tasks).generate_tasks_on_file(tasks_file)
 
 
 def main():
@@ -627,16 +652,5 @@ def main():
     exec_func(action, **kwargs)
 
 
-def audsley_main():
-    tasks = parse_tasks("miss.txt")
-    print(len(tasks))
-    log.debug("Audsley algorithm for '%s'" % len(tasks))
-    print(lowest_priority_viable(tasks, 0, 10, 0))
-
-
 if __name__ == "__main__":
     main()
-    # audsley_main()
-    # g = Generator(70, 6)
-    # g.generate_tasks_on_file()
-    # print(g.gen())
