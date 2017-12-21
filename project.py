@@ -45,7 +45,9 @@ def parse_args():
     sim_parser.add_argument(dest='stop', type=int,
                             help='Stop point of the simulation.')
     sim_parser.add_argument("--preemptive", action="store_true", default=False,
-                        help="Activate preemptive output mode.")
+                            help="Activate preemptive output mode.")
+    sim_parser.add_argument("--hard", action="store_true", default=False,
+                            help="Considers deadlines as hard.")
     add_task_arg(sim_parser)
     sim_parser.set_defaults(action="sim")
 
@@ -297,10 +299,11 @@ class Event:
 
 
 class FTPSimulation:
-    def __init__(self, start, stop, tasks):
+    def __init__(self, start, stop, tasks, hard=False):
         self.start = start
         self.stop = stop
         self.tasks = tasks
+        self.hard = hard
         self.S = calculate_s(self.tasks)
         self.P = hyper_period(self.tasks)
         self.pending_jobs = [[] for _ in range(self.tasks_count)]
@@ -408,7 +411,7 @@ class FTPSimulation:
         log.debug("Sn = %s ; P = %s" % finterval)
         log.info("Feasibility/Periodicity"
                  " interval of simulation (0, Sn + P) = %s " % str(finterval))
-
+        miss_deadlines = False
         for t in range(self.start, self.stop + 1):
             log.debug("%s: pending jobs: %s" % (t, self.pending_jobs))
             self.events[t] = Event(t)
@@ -420,6 +423,7 @@ class FTPSimulation:
                     if self.miss_deadline(job):
                         self.events[t].missed_deadlines.append(job)
                         self.missed_jobs[job.task_id] += 1
+                        miss_deadlines = True
                     else:
                         self.events[t].deadlines.append(job)
 
@@ -431,6 +435,10 @@ class FTPSimulation:
             for task_id in range(self.tasks_count):
                 for job in requested_jobs[task_id]:
                     self.events[t].arrivals.append(job)
+
+            if self.hard and miss_deadlines:
+                self.stop = t
+                break;
             # log.debug("Scheduling data: %s" % self.scheduling)
 
     def output(self, preemptive_mode):
@@ -441,7 +449,8 @@ class FTPSimulation:
 
     def _output_request_mode(self):
         print("Schedule from: %d to: %d ; %d tasks"
-              % (self.start, self.stop, self.tasks_count))
+              % (self.start, self.stop, self.tasks_count)
+              + (" (hard deadlines)" if self.hard else ''))
         compute_start, compute_shift = self.start, 0
 
         if len(self.events) == 0:
@@ -475,7 +484,8 @@ class FTPSimulation:
 
     def _output_preemptive_mode(self):
         print("Schedule from: %d to: %d ; %d tasks  (preemptive mode)"
-              % (self.start, self.stop, self.tasks_count))
+              % (self.start, self.stop, self.tasks_count)
+              + (" (hard deadlines)" if self.hard else ''))
         compute_start, compute_shift = self.start, 0
 
         if len(self.events) == 0:
@@ -752,9 +762,9 @@ def plot(start, stop, tasks_file):
     simulation.plot(filename)
 
 
-def sim(start, stop, tasks_file, preemptive):
+def sim(start, stop, tasks_file, preemptive, hard):
     log.info("Simulation for '%s'" % tasks_file)
-    simulation = FTPSimulation(start, stop, parse_tasks(tasks_file))
+    simulation = FTPSimulation(start, stop, parse_tasks(tasks_file), hard=hard)
     simulation.run()
     simulation.output(preemptive)
 
