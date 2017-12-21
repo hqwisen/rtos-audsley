@@ -330,7 +330,6 @@ class FTPSimulation:
         :return: (job_id, True) if task_id have a deadline at time t,
         (None, False) otherwise. (first job_id is 0)
         """
-
         deadline = self.tasks[task_id][D]
         return self.is_arrival_for(t - deadline, task_id)
 
@@ -564,41 +563,28 @@ class Generator:
         return task[C] / task[T]
 
     def close_to(self, utilisation, founded_util):
-<<<<<<< HEAD
-        """Return True if the utilisation founded is close to utilisation asked"""
-        max_difference = 2 # the maximum of difference between the utilisation given on parameter and the founded one 
-                            #here ( we followed the logic of round)
-        
-=======
         """
         Return True if the utilisation founded is close to utilisation asked
         """
         # the maximum of difference between the utilisation given
         # on parameter and the founded one
-        max_difference = 4
+        max_difference = 2
         # here ( we followed the logic of round)
->>>>>>> 5f6b25ddd424caeb038c877cbd54aaded77f9ea2
         valid_approximation = founded_util >= (
                 utilisation - max_difference)
         return valid_approximation
 
     def close_to_util(self, utilisation, founded_util):
-<<<<<<< HEAD
-        """Return True if the utilisation founded is on a good interval"""
-        max_difference = 2 # the maximum of difference between the utilisation given on parameter and the founded one 
-                            #here ( we followed the logic of round)
-
-        valid_approximation = founded_util >= (
-                utilisation - max_difference) and founded_util < utilisation  # 4 is an arbitrary choice ( we follow the logic of round)
-=======
         """
         Return True if the utilisation founded is on a good interval
         """
-
         # 4 is an arbitrary choice ( we follow the logic of round)
-        valid_approximation = founded_util >= (utilisation - 4) \
-                              and founded_util < utilisation
->>>>>>> 5f6b25ddd424caeb038c877cbd54aaded77f9ea2
+        # the maximum of difference between the
+        # utilisation given on parameter and the founded one
+        max_difference = 2
+        # here ( we followed the logic of round)
+        valid_approximation = founded_util >= (
+                utilisation - max_difference) and founded_util < utilisation
         return valid_approximation
 
     def system_utilisation(self, tasks):
