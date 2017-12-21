@@ -520,6 +520,7 @@ class FTPSimulation:
 
     def plot(self, filename):
         import matplotlib.pyplot as plt
+        import numpy as np
         fig = plt.figure()
         ax = fig.add_subplot(111)
         for y, row in enumerate(self.scheduling):
