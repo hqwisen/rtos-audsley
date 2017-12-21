@@ -6,10 +6,6 @@ import copy
 from math import gcd
 from random import randint
 
-import matplotlib.pyplot as plt
-import numpy as np
-from matplotlib.ticker import MaxNLocator
-
 log = logging.getLogger()
 logging.basicConfig(level=logging.FATAL)
 
@@ -523,6 +519,7 @@ class FTPSimulation:
                                  computed_job))
 
     def plot(self, filename):
+        import matplotlib.pyplot as plt
         fig = plt.figure()
         ax = fig.add_subplot(111)
         for y, row in enumerate(self.scheduling):
