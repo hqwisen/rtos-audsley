@@ -535,16 +535,9 @@ class FTPSimulation:
                 else:
                     plt.fill_between(x1, y1, y2=y2, color='white')
 
-        xlabels = ["%d" % t for t in range(self.start, self.stop)]
         plt.xlim(self.start, self.stop)
-
-        # ax.set_xticklabels(xlabels)
-
-        # plt.ylim(len(self.scheduling), 0)
-        # ax.set_yticklabels(tick_labels.astype(int))
-        # ylabels = ["T%s" % (t + 1) for t in range(self.tasks_count)]
-        # ax.set_yticklabels(ylabels)
-        # ax.yaxis.set_major_locator(MaxNLocator(integer=True))
+        ylabels = ["T%d" % (t + 1) for t in range(self.tasks_count)]
+        plt.yticks([t + 0.5 for t in range(self.tasks_count)], ylabels)
         plt.savefig(filename, bbox_inches='tight')
         plt.close()
 
