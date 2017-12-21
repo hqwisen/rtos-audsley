@@ -189,7 +189,6 @@ def calculate_s(tasks, i=None):
     else:
         offset, period = tasks[i][O], tasks[i][T]
         previous_s = calculate_s(tasks, i - 1)
-        # FIXME check that the formula is correct
         return offset + \
                (math.ceil(max(previous_s - offset, 0) / period) * period)
 
@@ -217,7 +216,6 @@ class Job:
         return self.remaining_computation == 0
 
     def __eq__(self, other):
-        # TODO whyis None compared to a job, Is it when miss_dealine is called ?
         if other is None or not isinstance(other, Job):
             return False
         else:
@@ -302,25 +300,10 @@ class FTPSimulation:
         self.tasks = tasks
         self.S = calculate_s(self.tasks)
         self.P = hyper_period(self.tasks)
-        # '[[]] * x' will reference  the same list i.e. the for loop instead
         self.pending_jobs = [[] for _ in range(self.tasks_count)]
-        self.previous_job = None
-        self.current_job_computation = 0
-        self._missed_jobs = [0 for _ in range(self.tasks_count)]
-        self._scheduling = [[] for _ in range(self.tasks_count)]
-        self._events = []
-
-    @property
-    def scheduling(self):
-        return self._scheduling
-
-    @property
-    def events(self):
-        return self._events
-
-    @property
-    def missed_jobs(self):
-        return self._missed_jobs
+        self.missed_jobs = [0 for _ in range(self.tasks_count)]
+        self.scheduling = [[] for _ in range(self.tasks_count)]
+        self.events = []
 
     @property
     def tasks_count(self):
@@ -417,29 +400,6 @@ class FTPSimulation:
             if active_job.done():
                 log.debug("%s: Removing job from pending: %s" % (t, active_job))
                 self.pending_jobs[active_job.task_id].remove(active_job)
-        # TODO the code below might be useless if we print after the process
-        # TODO to be tested
-        #
-        # if self.previous_job is None:
-        #     # First job to compute
-        #     self.previous_job = active_job
-        #     # When no job where computed before,
-        #     # there is no delay for the computation
-        #     # FIXME why 0 and not 1 ?
-        #     # FIXME Look at how the simulation behave when active job is done
-        #     # FIXME I think it consider the computing of the next job as not start
-        #     # FIXME when the active-job is finished
-        #     self.current_job_computation = 0
-        #
-        # if self.previous_job != active_job:
-        #     # FIXME make sure that __diff__ is impl or doesnt give any trouble
-        #     log.debug("%s: New job %s to be computed" % (t, active_job))
-        #     print("%s-%s: %s" % (t - self.current_job_computation, t,
-        #                          self.previous_job))
-        #     self.previous_job = active_job
-        #     self.current_job_computation = 1
-        # elif self.previous_job is not None:
-        #     self.current_job_computation += 1
 
     def run(self):
         finterval = (0, self.S + self.P)
@@ -448,28 +408,27 @@ class FTPSimulation:
                  " interval of simulation (0, Sn + P) = %s " % str(finterval))
 
         for t in range(self.start, self.stop + 1):
-            self.events.append(Event(t))
             log.debug("%s: pending jobs: %s" % (t, self.pending_jobs))
-            # FIXME why deadline should occur before computer ?
-            # FIXME look miss.txt example for confusion
+            self.events.append(Event(t))
             job_deadlines = self.get_job_deadlines(t)
             log.debug("%s: job deadlines: %s" % (t, job_deadlines))
+
             for task_id in range(self.tasks_count):
                 for job in job_deadlines[task_id]:
                     if self.miss_deadline(job):
-                        # print("%s: Job %s misses a deadline" % (t, job))
                         self.events[t].missed_deadlines.append(job)
                         self.missed_jobs[job.task_id] += 1
                     else:
                         self.events[t].deadlines.append(job)
-                        # print("%s: Deadline of job %s" % (t, job))
+
             requested_jobs = self.add_arrivals(t)
             log.debug("%s: requested jobs: %s" % (t, requested_jobs))
+
             self.compute(t)
+
             for task_id in range(self.tasks_count):
                 for job in requested_jobs[task_id]:
                     self.events[t].arrivals.append(job)
-                    # print("%s: Arrival of job %s" % (t, job))
             # log.debug("Scheduling data: %s" % self.scheduling)
 
     def output(self):
@@ -478,7 +437,7 @@ class FTPSimulation:
         compute_start, compute_shift = 0, 0
 
         if len(self.events) == 0:
-            print("(Nothing to compute)")
+            print("(Nothing to process)")
             return;
 
         computed_job = self.events[0].computed_job
@@ -504,56 +463,10 @@ class FTPSimulation:
                                  compute_start + compute_shift,
                                  computed_job))
 
-        # if self.events[t].has_all_deadlines():
-        #     pass
-
-        # if computed_job != event.computed_job:  # Job is finished
-        #     print("A%s-%s: %s" % (compute_start,
-        #                           compute_start + compute_shift,
-        #                           computed_job))
-        #     compute_start, compute_shift = t, 1
-        #     computed_job = self.events[t].computed_job
-        # elif computed_job is not None:
-        #     compute_shift += 1
-        # if t != 0 and self.events[t - 1].has_requests():
-        #     # event.print()
-        #     self.events[t - 1].print()
-        #     if computed_job is not None:
-        #         print("B%s-%s: %s" % (compute_start,
-        #                               compute_start + compute_shift,
-        #                               computed_job))
-        #         compute_start, compute_shift = t, 1
-        #         computed_job = self.events[t].computed_job
-        #
-        # #
-        # if computed_job is None:
-        #     computed_job = self.events[t].computed_job
-        #
-        # if self.events[t].no_requests():
-        #     if computed_job is not None:
-        #         compute_shift += 1
-        #         if computed_job != self.events[t].computed_job:
-        #             print("%s-%s: %s" % (compute_start,
-        #                                  compute_start + compute_shift - 1,
-        #                                  computed_job))
-        #             compute_start, compute_shift = t, 1
-        #             computed_job = self.events[t].computed_job
-        # else:
-        #     if t != 0:
-        #         print("%s-%s: %s" % (compute_start,
-        #                              compute_start + compute_shift - 1,
-        #                              computed_job))
-        #         compute_start, compute_shift = t, 1
-        #         computed_job = self.events[t].computed_job
-        #     self.events[t].print(t)
-
     def plot(self, filename):
         fig = plt.figure()
         ax = fig.add_subplot(111)
-        # ax.axes.get_yaxis().set_visible(False)
-        # ax.set_aspect(1)
-        data = self.scheduling[:]
-        for y, row in enumerate(data):
+        for y, row in enumerate(self.scheduling):
             for x, col in enumerate(row):
                 x1 = [x, x + 1]
                 y1 = np.array([y, y])
@@ -569,9 +482,6 @@ class FTPSimulation:
         plt.savefig(filename, bbox_inches='tight')
         plt.close()
 
-
-# def avg(a, b):
-#     return (a + b) / 2.0
 
 class Generator:
     def __init__(self, utilisation_factor, number_of_tasks):
@@ -701,43 +611,17 @@ class Generator:
                  % self.system_utilisation(all_tasks))
 
 
-def gen(utilisation_factor, number_of_tasks, tasks_file):
-    log.info("Generation of  '%s'" % number_of_tasks)
-    Generator(utilisation_factor,
-              number_of_tasks).generate_tasks_on_file(tasks_file)
-
-
-def interval(tasks_file):
-    log.info("Feasibility interval of '%s'" % tasks_file)
-    tasks = parse_tasks(tasks_file)
-    omax = max([task[O] for task in tasks])
-    P = hyper_period(tasks)
-    print(omax, omax + (2 * P))
-
-
-def sim(start, stop, tasks_file):
-    log.info("Simulation for '%s'" % tasks_file)
-    simulation = FTPSimulation(start, stop, parse_tasks(tasks_file))
-    simulation.run()
-    simulation.output()
-
-
 def lowest_priority_viable(tasks, task_id, start, stop):
     """
     Uses missed_jobs wihch contains
     tasks and number of missed jobs for every task return false if the
     task given on index miss a job
     """
-    # FIXME add a condition either here or in the simulation
-    # FIXME if len(tasks) == 1 (or 0)
-    # FIXME make sure that it is a deepcopy
-    # print("Initial tasks:", tasks)
     tasks_copy = tasks[:task_id] + tasks[task_id + 1:] + [tasks[task_id]]
     tasks_copy = copy.deepcopy(tasks_copy)
-    # print("Tasks copy:", tasks_copy)
     simulation = FTPSimulation(start, stop, tasks_copy)
     simulation.run()
-    # task_id is at the end when we test the lowest prio. viability
+    # task_id is at the end when we test the lowest priority viability
     missed_jobs = simulation.missed_jobs[-1]
     log.info("Tasks missed jobs '%s'" % simulation.missed_jobs)
     return missed_jobs == 0
@@ -794,6 +678,12 @@ def audsley(first, last, tasks_file):
     audsley_search(first, last, tasks, indices)
 
 
+def gen(utilisation_factor, number_of_tasks, tasks_file):
+    log.info("Generation of  '%s'" % number_of_tasks)
+    Generator(utilisation_factor,
+              number_of_tasks).generate_tasks_on_file(tasks_file)
+
+
 def plot(start, stop, tasks_file):
     log.info("Running simulation (for plot) on '%s'" % tasks_file)
     simulation = FTPSimulation(start, stop, parse_tasks(tasks_file))
@@ -801,6 +691,21 @@ def plot(start, stop, tasks_file):
     filename = "scheduler.png"
     print("Plotting to '%s'" % filename)
     simulation.plot(filename)
+
+
+def sim(start, stop, tasks_file):
+    log.info("Simulation for '%s'" % tasks_file)
+    simulation = FTPSimulation(start, stop, parse_tasks(tasks_file))
+    simulation.run()
+    simulation.output()
+
+
+def interval(tasks_file):
+    log.info("Feasibility interval of '%s'" % tasks_file)
+    tasks = parse_tasks(tasks_file)
+    omax = max([task[O] for task in tasks])
+    P = hyper_period(tasks)
+    print(omax, omax + (2 * P))
 
 
 def main():
