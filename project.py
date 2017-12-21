@@ -490,8 +490,7 @@ class FTPSimulation:
 
         computed_job = self.events[self.start].computed_job
         self.events[self.start].print()
-        for t in range(self.start + 1, self.stop + 1):
-
+        for t in range(self.start, self.stop + 1):
             if computed_job is not None:
                 compute_shift += 1
 
@@ -499,10 +498,11 @@ class FTPSimulation:
                     print("%s-%s: %s" % (compute_start,
                                          compute_start + compute_shift,
                                          computed_job))
-                    for i in range(compute_start, compute_start + compute_shift):
-                        if i != self.stop:
-                            self.events[i].print_arrivals()
-                        self.events[i].print_all_deadlines()
+
+                    for i in range(compute_start + 1, compute_start + compute_shift):
+                         if i != self.stop:
+                             self.events[i].print_arrivals()
+                         self.events[i].print_all_deadlines()
                     compute_start, compute_shift = t, 0
 
             else:
