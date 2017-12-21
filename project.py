@@ -558,8 +558,8 @@ class Generator:
         self.maximum_arbitrary_period = 100
         self.minimum_offset = 0
         # Period cannot be equal to 0
-        self.minium_period = 1
-        self.minum_wcet = 1
+        self.minimum_period = 1
+        self.minimum_wcet = 1
 
     def generate(self):
         """
@@ -575,9 +575,9 @@ class Generator:
             all_tasks[t][O] = randint(self.minimum_offset,
                                       self.maximum_arbitrary_offset)
 
-            all_tasks[t][T] = randint(self.minium_period,
+            all_tasks[t][T] = randint(self.minimum_period,
                                       self.maximum_arbitrary_period)
-            all_tasks[t][C] = randint(self.minum_wcet,
+            all_tasks[t][C] = randint(self.minimum_wcet,
                                       all_tasks[t][T])  # Ci <= Di <= Ti
             all_tasks[t][D] = randint(all_tasks[t][C],
                                       all_tasks[t][T])  # Ci <= Di <= Ti
@@ -615,15 +615,15 @@ class Generator:
             for i in range(self.number_of_tasks):
                 all_tasks[i][O] = randint(self.minimum_offset,
                                           self.maximum_arbitrary_offset)
-                all_tasks[i][T] = randint(self.minium_period,
+                all_tasks[i][T] = randint(self.minimum_period,
                                           self.maximum_arbitrary_period)
-                all_tasks[i][C] = randint(self.minum_wcet, all_tasks[i][T])
+                all_tasks[i][C] = randint(self.minimum_wcet, all_tasks[i][T])
                 all_tasks[i][D] = randint(all_tasks[i][C], all_tasks[i][T])
                 use_of_system += (self.task_utilisation(all_tasks[i]))
                 log.info("use_of_system  '%s'" % use_of_system)
         return all_tasks
 
-    def task_utilization(self, task):
+    def task_utilisation(self, task):
         """
         Calculate the utilisation of task WCET/PERIOD
         """
