@@ -8,6 +8,7 @@ from random import randint
 
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.ticker import MaxNLocator
 
 log = logging.getLogger()
 logging.basicConfig(level=logging.FATAL)
@@ -303,7 +304,7 @@ class FTPSimulation:
         self.pending_jobs = [[] for _ in range(self.tasks_count)]
         self.missed_jobs = [0 for _ in range(self.tasks_count)]
         self.scheduling = [[] for _ in range(self.tasks_count)]
-        self.events = []
+        self.events = {}
 
     @property
     def tasks_count(self):
@@ -408,7 +409,7 @@ class FTPSimulation:
 
         for t in range(self.start, self.stop + 1):
             log.debug("%s: pending jobs: %s" % (t, self.pending_jobs))
-            self.events.append(Event(t))
+            self.events[t] = Event(t)
             job_deadlines = self.get_job_deadlines(t)
             log.debug("%s: job deadlines: %s" % (t, job_deadlines))
 
@@ -433,15 +434,15 @@ class FTPSimulation:
     def output(self):
         print("Schedule from: %d to: %d ; %d tasks"
               % (self.start, self.stop, self.tasks_count))
-        compute_start, compute_shift = 0, 0
+        compute_start, compute_shift = self.start, 0
 
         if len(self.events) == 0:
             print("(Nothing to process)")
             return;
 
-        computed_job = self.events[0].computed_job
-        self.events[0].print()
-        for t in range(1, len(self.events)):
+        computed_job = self.events[self.start].computed_job
+        self.events[self.start].print()
+        for t in range(self.start + 1, self.stop + 1):
 
             if computed_job is not None:
                 compute_shift += 1
@@ -455,7 +456,9 @@ class FTPSimulation:
                 compute_start, compute_shift = t, 0
 
             computed_job = self.events[t].computed_job
-            self.events[t].print()
+            if(t != self.stop):
+                self.events[t].print_arrivals()
+            self.events[t].print_all_deadlines()
 
         if computed_job is not None and compute_shift > 0:
             print("%s-%s: %s" % (compute_start,
@@ -467,7 +470,7 @@ class FTPSimulation:
         ax = fig.add_subplot(111)
         for y, row in enumerate(self.scheduling):
             for x, col in enumerate(row):
-                x1 = [x, x + 1]
+                x1 = [x + self.start, x + self.stop + 1]
                 y1 = np.array([y, y])
                 y2 = y1 + 1
                 if col != 0:
@@ -475,9 +478,16 @@ class FTPSimulation:
                 else:
                     plt.fill_between(x1, y1, y2=y2, color='white')
 
-        ylabels = ["T%s" % t for t in range(self.tasks_count)]
-        ax.set_yticklabels(ylabels)
-        plt.ylim(len(self.scheduling), 0)
+        xlabels = ["%d" % t for t in range(self.start, self.stop)]
+        plt.xlim(self.start, self.stop)
+
+        # ax.set_xticklabels(xlabels)
+
+        # plt.ylim(len(self.scheduling), 0)
+        # ax.set_yticklabels(tick_labels.astype(int))
+        # ylabels = ["T%s" % (t + 1) for t in range(self.tasks_count)]
+        # ax.set_yticklabels(ylabels)
+        # ax.yaxis.set_major_locator(MaxNLocator(integer=True))
         plt.savefig(filename, bbox_inches='tight')
         plt.close()
 
