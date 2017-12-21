@@ -44,6 +44,8 @@ def parse_args():
                             help='Start point of the simulation.')
     sim_parser.add_argument(dest='stop', type=int,
                             help='Stop point of the simulation.')
+    sim_parser.add_argument("--preemptive", action="store_true", default=False,
+                        help="Activate preemptive output mode.")
     add_task_arg(sim_parser)
     sim_parser.set_defaults(action="sim")
 
@@ -431,7 +433,13 @@ class FTPSimulation:
                     self.events[t].arrivals.append(job)
             # log.debug("Scheduling data: %s" % self.scheduling)
 
-    def output(self):
+    def output(self, preemptive_mode):
+        if preemptive_mode:
+            self._output_preemptive_mode()
+        else:
+            self._output_request_mode()
+
+    def _output_request_mode(self):
         print("Schedule from: %d to: %d ; %d tasks"
               % (self.start, self.stop, self.tasks_count))
         compute_start, compute_shift = self.start, 0
@@ -456,9 +464,48 @@ class FTPSimulation:
                 compute_start, compute_shift = t, 0
 
             computed_job = self.events[t].computed_job
-            if(t != self.stop):
+            if t != self.stop:
                 self.events[t].print_arrivals()
             self.events[t].print_all_deadlines()
+
+        if computed_job is not None and compute_shift > 0:
+            print("%s-%s: %s" % (compute_start,
+                                 compute_start + compute_shift,
+                                 computed_job))
+
+    def _output_preemptive_mode(self):
+        print("Schedule from: %d to: %d ; %d tasks  (preemptive mode)"
+              % (self.start, self.stop, self.tasks_count))
+        compute_start, compute_shift = self.start, 0
+
+        if len(self.events) == 0:
+            print("(Nothing to process)")
+            return;
+
+        computed_job = self.events[self.start].computed_job
+        self.events[self.start].print()
+        for t in range(self.start + 1, self.stop + 1):
+
+            if computed_job is not None:
+                compute_shift += 1
+
+                if computed_job != self.events[t].computed_job:
+                    print("%s-%s: %s" % (compute_start,
+                                         compute_start + compute_shift,
+                                         computed_job))
+                    for i in range(compute_start, compute_start + compute_shift):
+                        if i != self.stop:
+                            self.events[i].print_arrivals()
+                        self.events[i].print_all_deadlines()
+                    compute_start, compute_shift = t, 0
+
+            else:
+                compute_start, compute_shift = t, 0
+                if t != self.stop:
+                    self.events[t].print_arrivals()
+                self.events[t].print_all_deadlines()
+
+            computed_job = self.events[t].computed_job
 
         if computed_job is not None and compute_shift > 0:
             print("%s-%s: %s" % (compute_start,
@@ -705,11 +752,11 @@ def plot(start, stop, tasks_file):
     simulation.plot(filename)
 
 
-def sim(start, stop, tasks_file):
+def sim(start, stop, tasks_file, preemptive):
     log.info("Simulation for '%s'" % tasks_file)
     simulation = FTPSimulation(start, stop, parse_tasks(tasks_file))
     simulation.run()
-    simulation.output()
+    simulation.output(preemptive)
 
 
 def interval(tasks_file):
